@@ -79,6 +79,14 @@
   .others{margin-top:8px;font-size:12.5px;color:var(--muted)}
   .others b{color:var(--text);font-weight:600}
   .foot{margin-top:26px;text-align:center;color:var(--muted);font-size:11.5px;line-height:1.6}
+  .summary{margin:2px 2px 12px;font-size:12.5px;color:var(--muted)}
+  .summary b{color:var(--text)}
+  .hw{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--text);
+      border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+  .maj{color:var(--muted);font-size:11.5px;margin-top:6px}
+  .act{display:inline-block;margin-top:9px;font-size:12.5px;font-weight:700;color:var(--amber);
+       text-decoration:none;border:1px solid var(--amber-dim);border-radius:9px;padding:6px 11px}
+  .act:active{transform:translateY(1px)}
 </style>
 
 <div class="wrap">
@@ -127,6 +135,11 @@
     <div class="chips" id="chips"></div>
   </div>
 
+  <div class="field">
+    <label>Filtre</label>
+    <div class="chips" id="filters"></div>
+  </div>
+
   <button class="go" id="go">Stations près de moi</button>
 
   <div id="out"></div>
@@ -145,8 +158,24 @@
   let fuel = "gazole";
   let mode = "gps";        // "gps" | "manual"
   let radiusKm = 10;
+  let only24 = false;
   const out = document.getElementById("out");
   const goBtn = document.getElementById("go");
+
+  /* --- mémorisation des préférences (silencieuse si stockage indisponible) --- */
+  const MEM = "carbu_prefs";
+  const mem = (()=>{ try{ return JSON.parse(localStorage.getItem(MEM)||"{}"); }catch(e){ return {}; } })();
+  if(mem.fuel && FUELS[mem.fuel]) fuel = mem.fuel;
+  if([5,10,20].includes(mem.radiusKm)) radiusKm = mem.radiusKm;
+  only24 = !!mem.only24;
+  if(mem.mode==="manual"||mem.mode==="gps") mode = mem.mode;
+  function remember(){
+    try{ localStorage.setItem(MEM, JSON.stringify({
+      mode, fuel, radiusKm, only24,
+      commune: document.getElementById("commune").value,
+      cp: document.getElementById("cp").value
+    })); }catch(e){}
+  }
 
   /* --- chips carburant --- */
   const chipsEl = document.getElementById("chips");
@@ -167,6 +196,15 @@
       [...radiusEl.children].forEach(c => c.setAttribute("aria-pressed", c === b)); };
     radiusEl.appendChild(b);
   });
+
+  /* --- chip filtre 24/24 --- */
+  const filtersEl = document.getElementById("filters");
+  (function(){
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = "Ouvert 24/24"; b.setAttribute("aria-pressed", only24);
+    b.onclick = () => { only24 = !only24; b.setAttribute("aria-pressed", only24); };
+    filtersEl.appendChild(b);
+  })();
 
   /* --- bascule de mode --- */
   const tabGps = document.getElementById("tab-gps");
@@ -205,6 +243,35 @@
   }
   function fmtDist(km){ return km < 1 ? Math.round(km*1000)+" m"
                                       : km.toFixed(1).replace(".",",")+" km"; }
+  // "il y a 2 h", "hier", "il y a 3 j" à partir du champ *_maj
+  function relTime(s){
+    if(!s) return "";
+    const t = Date.parse(String(s).replace(" ","T"));
+    if(isNaN(t)) return "";
+    const d = (Date.now()-t)/1000;
+    if(d < 3600) return "il y a "+Math.max(1,Math.round(d/60))+" min";
+    if(d < 86400) return "il y a "+Math.round(d/3600)+" h";
+    const j = Math.round(d/86400);
+    return j===1 ? "hier" : "il y a "+j+" j";
+  }
+  function is24(rec){
+    const v = String(rec.horaires_automate_24_24 ?? "").toLowerCase();
+    if(v==="1"||v==="oui"||v==="true"||v.includes("24")) return true;
+    return String(rec.horaires ?? "").includes("24/24");
+  }
+  function mapsUrl(rec){
+    const c = coords(rec);
+    if(c) return `https://www.google.com/maps/dir/?api=1&destination=${c[0]},${c[1]}`;
+    const q = encodeURIComponent(`${rec.adresse||""} ${rec.cp||""} ${rec.ville||""}`.trim());
+    return `https://www.google.com/maps/search/?api=1&query=${q}`;
+  }
+  // filtre 24/24 avec repli : si aucune 24/24, on montre tout plutôt qu'un écran vide
+  function filter24(rows){
+    if(!only24) return {rows, note:""};
+    const f = rows.filter(x => is24(x.rec));
+    if(f.length) return {rows:f, note:" · 24/24 uniquement"};
+    return {rows, note:" · aucune 24/24 détectée, toutes affichées"};
+  }
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c =>
     ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   function status(html){ out.innerHTML = `<div class="status">${html}</div>`; }
@@ -212,12 +279,19 @@
   /* --- rendu commun --- */
   function render(rows, head){
     if(!rows.length) return;
-    const best = Math.min(...rows.map(r => r.p[fuel]));
-    let html = `<div class="count">${head}</div>`;
+    const prices = rows.map(r => r.p[fuel]);
+    const best = Math.min(...prices), worst = Math.max(...prices);
+    const spread = worst - best;
+    const summary = spread > 0.001
+      ? `<div class="summary">De <b>${best.toFixed(3)}</b> à <b>${worst.toFixed(3)}</b> € — jusqu'à <b>${(spread*50).toFixed(2)} €</b> d'écart sur un plein de 50 L.</div>`
+      : "";
+    let html = `<div class="count">${head}</div>${summary}`;
     for(const {rec, p, dist} of rows){
       const isBest = p[fuel] === best;
       const others = Object.keys(p).filter(f => f !== fuel)
         .map(f => `${FUELS[f]||f} <b>${p[f].toFixed(3)}</b>`).join(" · ");
+      const maj = relTime(rec[fuel+"_maj"]);
+      const auto = String(rec.pop||"").toUpperCase() === "A";
       html += `
         <div class="card${isBest ? " best" : ""}">
           <div class="price">${p[fuel].toFixed(3)}<small>€</small></div>
@@ -227,8 +301,12 @@
             <div class="badges">
               ${dist != null ? `<span class="dist">à ${fmtDist(dist)}</span>` : ""}
               ${isBest ? `<span class="tag">MEILLEUR PRIX</span>` : ""}
+              ${auto ? `<span class="hw">Autoroute</span>` : ""}
+              ${is24(rec) ? `<span class="hw">24/24</span>` : ""}
             </div>
             ${others ? `<div class="others">${others}</div>` : ""}
+            ${maj ? `<div class="maj">Prix mis à jour ${maj}</div>` : ""}
+            <a class="act" target="_blank" rel="noopener" href="${mapsUrl(rec)}">Itinéraire →</a>
           </div>
         </div>`;
     }
@@ -246,6 +324,7 @@
     const commune = document.getElementById("commune").value.trim().replace(/"/g,"");
     const cp = document.getElementById("cp").value.trim().replace(/\D/g,"");
     if(!commune){ status("Entre d'abord une commune à chercher."); return; }
+    remember();
     let where = `ville like "${commune}"`;
     if(cp) where += ` and cp = "${cp}"`;
     status(`Recherche des stations à <b>${esc(commune)}</b>…`);
@@ -253,16 +332,18 @@
     try{ recs = await apiGet(`where=${encodeURIComponent(where)}&limit=100`); }
     catch(e){ status(`Impossible de joindre le service. Vérifie ta connexion.
                       <br><span style="font-size:12px">(${esc(e.message)})</span>`); return; }
-    const rows = recs.map(rec => ({rec, p: pricesOf(rec)}))
+    let rows = recs.map(rec => ({rec, p: pricesOf(rec)}))
       .filter(x => fuel in x.p).sort((a,b) => a.p[fuel]-b.p[fuel]);
     if(!rows.length){ status(`Aucune station ne propose du <b>${FUELS[fuel]}</b> à
       <b>${esc(commune)}</b>${cp ? " ("+cp+")" : ""}.<br>Essaie un autre carburant.`); return; }
-    render(rows, `${rows.length} station(s) · ${FUELS[fuel]}, moins cher d'abord`);
+    const F = filter24(rows); rows = F.rows;
+    render(rows, `${rows.length} station(s) · ${FUELS[fuel]}, moins cher d'abord${F.note}`);
   }
 
   /* --- recherche autour de moi (GPS) --- */
   function searchGps(){
     if(!navigator.geolocation){ status("Ce navigateur ne fournit pas la géolocalisation."); return; }
+    remember();
     status("Localisation en cours… (autorise l'accès si on te le demande)");
     navigator.geolocation.getCurrentPosition(async pos => {
       const {latitude:lat, longitude:lon} = pos.coords;
@@ -275,7 +356,7 @@
       try{ recs = await apiGet(params); }
       catch(e){ status(`Impossible de joindre le service. Vérifie ta connexion.
                         <br><span style="font-size:12px">(${esc(e.message)})</span>`); return; }
-      const rows = recs.map(rec => {
+      let rows = recs.map(rec => {
           const p = pricesOf(rec), c = coords(rec);
           return {rec, p, dist: c ? haversine(lat, lon, c[0], c[1]) : null};
         })
@@ -283,7 +364,8 @@
         .sort((a,b) => (a.dist ?? 1e9) - (b.dist ?? 1e9));
       if(!rows.length){ status(`Aucune station avec du <b>${FUELS[fuel]}</b> dans
         ${radiusKm} km.<br>Élargis le rayon ou change de carburant.`); return; }
-      render(rows, `${rows.length} station(s) · ${FUELS[fuel]}, la plus proche d'abord`);
+      const F = filter24(rows); rows = F.rows;
+      render(rows, `${rows.length} station(s) · ${FUELS[fuel]}, la plus proche d'abord${F.note}`);
     }, err => {
       const msg = {1:"Accès à la position refusé. Autorise-le dans les réglages, "+
                      "ou passe en mode « Par commune ».",
@@ -298,4 +380,9 @@
   document.addEventListener("keydown", e => {
     if(e.key === "Enter" && mode === "manual") searchManual();
   });
+
+  /* --- restauration de la dernière recherche --- */
+  if(mem.commune) document.getElementById("commune").value = mem.commune;
+  if(mem.cp) document.getElementById("cp").value = mem.cp;
+  setMode(mode);
 </script>
