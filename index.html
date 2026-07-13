@@ -261,9 +261,9 @@
   }
   function mapsUrl(rec){
     const c = coords(rec);
-    if(c) return `https://www.google.com/maps/dir/?api=1&destination=${c[0]},${c[1]}`;
+    if(c) return `https://waze.com/ul?ll=${c[0]},${c[1]}&navigate=yes`;
     const q = encodeURIComponent(`${rec.adresse||""} ${rec.cp||""} ${rec.ville||""}`.trim());
-    return `https://www.google.com/maps/search/?api=1&query=${q}`;
+    return `https://waze.com/ul?q=${q}&navigate=yes`;
   }
   // filtre 24/24 avec repli : si aucune 24/24, on montre tout plutôt qu'un écran vide
   function filter24(rows){
@@ -306,7 +306,7 @@
             </div>
             ${others ? `<div class="others">${others}</div>` : ""}
             ${maj ? `<div class="maj">Prix mis à jour ${maj}</div>` : ""}
-            <a class="act" target="_blank" rel="noopener" href="${mapsUrl(rec)}">Itinéraire →</a>
+            <a class="act" target="_blank" rel="noopener" href="${mapsUrl(rec)}">Itinéraire Waze →</a>
           </div>
         </div>`;
     }
