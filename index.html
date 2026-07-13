@@ -87,6 +87,20 @@
   .act{display:inline-block;margin-top:9px;font-size:12.5px;font-weight:700;color:var(--amber);
        text-decoration:none;border:1px solid var(--amber-dim);border-radius:9px;padding:6px 11px}
   .act:active{transform:translateY(1px)}
+  .sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;
+            opacity:0;pointer-events:none;transition:opacity .2s}
+  .sheet-bg.show{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:51;max-width:520px;margin:0 auto;
+         background:var(--panel);border:1px solid var(--line);border-radius:18px 18px 0 0;
+         padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+         transform:translateY(110%);transition:transform .22s}
+  .sheet.show{transform:none}
+  .sheet h3{margin:2px 2px 14px;font-size:13px;color:var(--muted);font-weight:700;
+            text-align:center;text-transform:uppercase;letter-spacing:.06em}
+  .sheet a{display:block;text-align:center;padding:15px;border-radius:12px;border:1px solid var(--line);
+           color:var(--text);text-decoration:none;font-weight:700;font-size:15px;margin-bottom:9px}
+  .sheet a:active{background:var(--panel-2)}
+  .sheet .cancel{border:0;color:var(--muted);margin-bottom:0}
 </style>
 
 <div class="wrap">
@@ -148,6 +162,15 @@
     Données officielles DGCCRF via data.economie.gouv.fr · mises à jour ~10 min.<br>
     Ajoute cette page à ton écran d'accueil pour un accès type appli.
   </div>
+</div>
+
+<div class="sheet-bg" id="navbg"></div>
+<div class="sheet" id="navsheet" role="dialog" aria-label="Choisir une application d'itinéraire">
+  <h3>Ouvrir l'itinéraire dans…</h3>
+  <a id="nav-waze" target="_blank" rel="noopener">Waze</a>
+  <a id="nav-gmaps" target="_blank" rel="noopener">Google Maps</a>
+  <a id="nav-apple" target="_blank" rel="noopener">Plans (Apple)</a>
+  <a class="cancel" id="nav-cancel" href="#">Annuler</a>
 </div>
 
 <script>
@@ -259,11 +282,13 @@
     if(v==="1"||v==="oui"||v==="true"||v.includes("24")) return true;
     return String(rec.horaires ?? "").includes("24/24");
   }
-  function mapsUrl(rec){
-    const c = coords(rec);
-    if(c) return `https://waze.com/ul?ll=${c[0]},${c[1]}&navigate=yes`;
-    const q = encodeURIComponent(`${rec.adresse||""} ${rec.cp||""} ${rec.ville||""}`.trim());
-    return `https://waze.com/ul?q=${q}&navigate=yes`;
+  function navUrls(lat, lon, q){
+    const geo = lat && lon;
+    return {
+      waze:  geo ? `https://waze.com/ul?ll=${lat},${lon}&navigate=yes` : `https://waze.com/ul?q=${q}&navigate=yes`,
+      gmaps: geo ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}` : `https://www.google.com/maps/dir/?api=1&destination=${q}`,
+      apple: geo ? `https://maps.apple.com/?daddr=${lat},${lon}` : `https://maps.apple.com/?daddr=${q}`
+    };
   }
   // filtre 24/24 avec repli : si aucune 24/24, on montre tout plutôt qu'un écran vide
   function filter24(rows){
@@ -292,6 +317,8 @@
         .map(f => `${FUELS[f]||f} <b>${p[f].toFixed(3)}</b>`).join(" · ");
       const maj = relTime(rec[fuel+"_maj"]);
       const auto = String(rec.pop||"").toUpperCase() === "A";
+      const c = coords(rec);
+      const navq = encodeURIComponent(`${rec.adresse||""} ${rec.cp||""} ${rec.ville||""}`.trim());
       html += `
         <div class="card${isBest ? " best" : ""}">
           <div class="price">${p[fuel].toFixed(3)}<small>€</small></div>
@@ -306,7 +333,7 @@
             </div>
             ${others ? `<div class="others">${others}</div>` : ""}
             ${maj ? `<div class="maj">Prix mis à jour ${maj}</div>` : ""}
-            <a class="act" target="_blank" rel="noopener" href="${mapsUrl(rec)}">Itinéraire Waze →</a>
+            <a class="act" href="#" data-lat="${c?c[0]:''}" data-lon="${c?c[1]:''}" data-q="${navq}">Itinéraire →</a>
           </div>
         </div>`;
     }
@@ -380,6 +407,26 @@
   document.addEventListener("keydown", e => {
     if(e.key === "Enter" && mode === "manual") searchManual();
   });
+
+  /* --- itinéraire : feuille de choix de l'app --- */
+  const navbg = document.getElementById("navbg");
+  const navsheet = document.getElementById("navsheet");
+  function openSheet(){ navbg.classList.add("show"); navsheet.classList.add("show"); }
+  function closeSheet(){ navbg.classList.remove("show"); navsheet.classList.remove("show"); }
+  document.addEventListener("click", e => {
+    const a = e.target.closest("a.act");
+    if(!a) return;
+    e.preventDefault();
+    const u = navUrls(a.dataset.lat, a.dataset.lon, a.dataset.q || "");
+    document.getElementById("nav-waze").href = u.waze;
+    document.getElementById("nav-gmaps").href = u.gmaps;
+    document.getElementById("nav-apple").href = u.apple;
+    openSheet();
+  });
+  navbg.onclick = closeSheet;
+  document.getElementById("nav-cancel").onclick = e => { e.preventDefault(); closeSheet(); };
+  ["nav-waze","nav-gmaps","nav-apple"].forEach(id =>
+    document.getElementById(id).addEventListener("click", () => setTimeout(closeSheet, 100)));
 
   /* --- restauration de la dernière recherche --- */
   if(mem.commune) document.getElementById("commune").value = mem.commune;
