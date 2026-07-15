@@ -263,6 +263,22 @@
         <label for="geminiApiKey">Clé API directe (test seulement)</label>
         <input id="geminiApiKey" type="password" placeholder="AIza…" autocomplete="off">
       </div>
+      <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px;">
+        <summary style="cursor:pointer;font-weight:700;color:var(--text);margin-bottom:8px">Enrichissement marques (Pappers/Société.com)</summary>
+        <p class="hint">Lance un serveur Node pour matcher les stations avec adresses → Pappers ou patterns locaux. Améliore les logos et noms d'enseigne. <strong>Optionnel.</strong></p>
+        <div class="field">
+          <label for="brandLookupUrl">URL du serveur brand lookup</label>
+          <input id="brandLookupUrl" placeholder="http://localhost:3001/lookup" autocomplete="off">
+        </div>
+        <button class="go secondary" id="testBrandServer" type="button" style="margin-bottom:8px">Tester la connexion</button>
+        <div id="brandTestInfo"></div>
+        <p class="hint" style="margin-top:8px;font-size:11px">
+          <strong>Installation locale:</strong><br>
+          1. Clone le serveur: <code style="background:var(--panel-2);padding:2px 4px;border-radius:3px">node societe-lookup.js</code><br>
+          2. URL par défaut: <code style="background:var(--panel-2);padding:2px 4px;border-radius:3px">http://localhost:3001/lookup</code><br>
+          3. Avec clé Pappers: <code style="background:var(--panel-2);padding:2px 4px;border-radius:3px">PAPPERS_API_KEY=... node societe-lookup.js</code>
+        </p>
+      </div>
     </details>
   </section>
 
@@ -716,8 +732,49 @@
   }
 
   const brandDetectionCache = new Map();
+  const brandLookupCache = new Map();   // Cache pour résultats serveur
+  const BRAND_LOOKUP_URL = localStorage.getItem('brand_lookup_url') || '';  // URL optionnelle du serveur
   
-  function detectBrand(rec){
+  async function lookupBrandFromServer(rec) {
+    /* Essai optionnel de lookup via backend Pappers/Société.com
+       Si BRAND_LOOKUP_URL configurée et station pas en cache → demande au serveur */
+    
+    if (!BRAND_LOOKUP_URL || !rec.id || brandLookupCache.has(rec.id)) return null;
+    
+    try {
+      const response = await fetch(BRAND_LOOKUP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adresse: rec.adresse || '',
+          ville: rec.ville || '',
+          cp: rec.cp || ''
+        }),
+        timeout: 2000  /* Pas bloquer si serveur lent */
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.brandKey && FUELS[result.brandKey]) {
+          brandLookupCache.set(rec.id, result.brandKey);
+          return result.brandKey;
+        }
+      }
+    } catch (error) {
+      /* Silencieux: ne pas bloquer le rendu si lookup fail */
+    }
+    return null;
+  }
+  
+  function updateBrandLookupUrl(url) {
+    const trimmed = url.trim();
+    if (trimmed) {
+      localStorage.setItem('brand_lookup_url', trimmed);
+    } else {
+      localStorage.removeItem('brand_lookup_url');
+    }
+    brandLookupCache.clear();  /* Invalider cache si URL change */
+  }
     if(!rec || !rec.id) return "unknown";
     if(brandDetectionCache.has(rec.id)) return brandDetectionCache.get(rec.id);
     
@@ -1352,6 +1409,47 @@
     rememberAi();
     refreshAssistantState();
   });
+
+  const brandLookupUrlInput = document.getElementById("brandLookupUrl");
+  const testBrandServerBtn = document.getElementById("testBrandServer");
+  const brandTestInfo = document.getElementById("brandTestInfo");
+  
+  if(brandLookupUrlInput) {
+    brandLookupUrlInput.value = BRAND_LOOKUP_URL;
+    brandLookupUrlInput.addEventListener("input", event => {
+      updateBrandLookupUrl(event.target.value);
+    });
+  }
+  
+  if(testBrandServerBtn) {
+    testBrandServerBtn.onclick = async () => {
+      if(!BRAND_LOOKUP_URL) {
+        brandTestInfo.innerHTML = '<span style="color:var(--danger)">❌ URL non configurée</span>';
+        return;
+      }
+      brandTestInfo.innerHTML = '<span style="color:var(--muted)">🔄 Test en cours…</span>';
+      try {
+        const response = await fetch(BRAND_LOOKUP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            adresse: 'Test',
+            ville: 'Paris',
+            cp: '75001'
+          }),
+          timeout: 3000
+        });
+        if(response.ok) {
+          const data = await response.json();
+          brandTestInfo.innerHTML = `<span style="color:var(--best)">✅ Serveur OK (source: ${data.source})</span>`;
+        } else {
+          brandTestInfo.innerHTML = `<span style="color:var(--danger)">❌ HTTP ${response.status}</span>`;
+        }
+      } catch(e) {
+        brandTestInfo.innerHTML = `<span style="color:var(--danger)">❌ Erreur: ${e.message}</span>`;
+      }
+    };
+  }
 
   const navbg = document.getElementById("navbg");
   const navsheet = document.getElementById("navsheet");
