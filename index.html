@@ -327,6 +327,33 @@
   const DEFAULT_GEMINI_CONFIG = window.MON_ESSENCE_CONFIG || {};
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+  /* ============================================
+     DOCUMENTATION: Données DGCCRF
+     ============================================
+     SOURCE: data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/prix-des-carburants-en-france-flux-instantane-v2
+     
+     LIMITATIONS CONNUES:
+     1. Aucun SIRET exposé — impossible d'enrichir via Pappers ou autre API de RCS
+     2. ID interne transactionnel non mappable à d'autres sources officielles
+     3. Délai de sync ~10-15 min, décalage possible lors des pics
+     4. Incomplet: stations indépendantes petites, fermées récemment, en restructuration souvent absentes
+     5. Données adresse/ville parfois mal normalisées (accents, tirets, abréviations variables)
+     6. Services optionnels et présence 24/24 détectés par heuristiques (champs descriptifs)
+     
+     CHAMPS CLÉS:
+     - id: Identifiant transactionnel unique (ex: 5100009) — pas un SIRET
+     - adresse, ville, cp: Géolocalisation basique
+     - geom: {lat, lon} — coordonnées normales (pas 1e5)
+     - prix[]: Array JSON {nom, maj, valeur} pour chaque carburant
+     - horaires: JSON complexe, parsé pour détection "24/24"
+     - services: Array descriptif (gonflage, bornes élec, etc.)
+     
+     RECONNAISSANCE DE MARQUES:
+     Utilise analyse textuelle adresse+ville (detectBrand) car pas d'identifiant enseigne.
+     Fallback sur "Indépendant" pour stations sans match pattern.
+     Cache local pour éviter redondance lors d'affichage multiple cartes.
+     ============================================ */
+
   let fuel = "gazole";
   let mode = "gps";
   let radiusKm = 10;
@@ -688,33 +715,47 @@
     return String(rec.horaires ?? "").includes("24/24");
   }
 
+  const brandDetectionCache = new Map();
+  
   function detectBrand(rec){
-    const fullText = `${rec.adresse} ${rec.ville}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if(!rec || !rec.id) return "unknown";
+    if(brandDetectionCache.has(rec.id)) return brandDetectionCache.get(rec.id);
+    
+    const fullText = `${rec.adresse || ""} ${rec.ville || ""}`.toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
     const checks = [
-      [/\be\.?leclerc\b/, "leclerc"],
-      [/\bleclerc\b/, "leclerc"],
+      [/\b(e\.?leclerc|leclerc)\b/, "leclerc"],
       [/\bcarrefour\b/, "carrefour"],
-      [/\bintermarche\b/, "intermarche"],
-      [/\binter marche\b/, "intermarche"],
-      [/\btotal\b/, "total"],
+      [/\b(intermarche|inter marche|inter-marche)\b/, "intermarche"],
+      [/\b(total|totalenergies)\b/, "total"],
       [/\besso\b/, "esso"],
       [/\bshell\b/, "shell"],
       [/\blidl\b/, "lidl"],
       [/\bcora\b/, "cora"],
-      [/\bcasino\b/, "casino"],
-      [/\bgeant casino\b/, "casino"],
-      [/\bsysteme u\b/, "u"],
-      [/\bsysteme-u\b/, "u"],
-      [/\b(super|hyper)?u\b/, "u"]
+      [/\b(casino|geant casino)\b/, "casino"],
+      [/\b(systeme u|systeme-u|super u|hyper u)\b/, "u"],
+      [/\b(bp|british petroleum)\b/, "shell"],
+      [/\belan\b/, "leclerc"],
+      [/\buve\b/, "u"],
+      [/\bautocall\b/, "total"],
+      [/\boutanis\b/, "leclerc"]
     ];
+    
     for(const [matcher, key] of checks){
-      if(matcher.test(fullText)) return key;
+      if(matcher.test(fullText)){
+        brandDetectionCache.set(rec.id, key);
+        return key;
+      }
     }
-    return "unknown";
+    
+    const result = "unknown";
+    brandDetectionCache.set(rec.id, result);
+    return result;
   }
 
   function navUrls(lat, lon, query){
-    const hasGeo = lat && lon;
+    const hasGeo = typeof lat === "number" && typeof lon === "number" && isFinite(lat) && isFinite(lon);
     return {
       waze: hasGeo ? `https://waze.com/ul?ll=${lat},${lon}&navigate=yes` : `https://waze.com/ul?q=${query}&navigate=yes`,
       gmaps: hasGeo ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}` : `https://www.google.com/maps/dir/?api=1&destination=${query}`,
