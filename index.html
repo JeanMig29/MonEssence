@@ -117,6 +117,8 @@
   .foot{margin-top:26px;text-align:center;color:var(--muted);font-size:11.5px;line-height:1.6}
   .summary{margin:2px 2px 12px;font-size:12.5px;color:var(--muted)}
   .summary b{color:var(--text)}
+  .priority{display:grid;gap:10px;margin:0 0 14px}
+  .priority-title{margin:0 2px 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
   .hw{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--text);
       border:1px solid var(--line);border-radius:999px;padding:2px 8px}
   .maj{color:var(--muted);font-size:11.5px;margin-top:6px}
@@ -137,6 +139,9 @@
            color:var(--text);text-decoration:none;font-weight:700;font-size:15px;margin-bottom:9px}
   .sheet a:active{background:var(--panel-2)}
   .sheet .cancel{border:0;color:var(--muted);margin-bottom:0}
+  .decision{font-size:11px;font-weight:800;letter-spacing:.06em;border-radius:999px;padding:2px 8px}
+  .decision.price{color:var(--best);border:1px solid var(--best)}
+  .decision.distance{color:var(--text);border:1px solid var(--line)}
 
   @media (max-width:480px){
     .voice-row{grid-template-columns:1fr}
@@ -544,8 +549,82 @@
     return `Pour ${FUELS[fuel]}, ${rankText} est ${address || "adresse non précisée"}, à ${item.p[fuel].toFixed(3).replace(".", ",")} euro le litre${distance}.`;
   }
 
+  function findCheapestRow(rows){
+    return rows.reduce((best, current) => {
+      if(!best) return current;
+      const priceDelta = current.p[fuel] - best.p[fuel];
+      if(priceDelta < -0.0001) return current;
+      if(Math.abs(priceDelta) <= 0.0001 && (current.dist ?? 1e9) < (best.dist ?? 1e9)) return current;
+      return best;
+    }, null);
+  }
+
+  function findNearestRow(rows){
+    return rows.reduce((best, current) => {
+      if(!best) return current;
+      const distDelta = (current.dist ?? 1e9) - (best.dist ?? 1e9);
+      if(distDelta < -0.0001) return current;
+      if(Math.abs(distDelta) <= 0.0001 && current.p[fuel] < best.p[fuel]) return current;
+      return best;
+    }, null);
+  }
+
+  function orderGpsRows(rows){
+    const cheapest = findCheapestRow(rows);
+    const nearest = findNearestRow(rows);
+    const leading = [];
+    if(cheapest) leading.push(cheapest);
+    if(nearest && nearest !== cheapest) leading.push(nearest);
+    const remainder = rows.filter(row => !leading.includes(row));
+    remainder.sort((a, b) => {
+      const byPrice = a.p[fuel] - b.p[fuel];
+      if(Math.abs(byPrice) > 0.0001) return byPrice;
+      return (a.dist ?? 1e9) - (b.dist ?? 1e9);
+    });
+    return {ordered:[...leading, ...remainder], cheapest, nearest};
+  }
+
+  function priorityBadges(row, cheapest, nearest){
+    const badges = [];
+    if(row === cheapest) badges.push('<span class="decision price">MOINS CHER</span>');
+    if(row === nearest) badges.push('<span class="decision distance">PLUS PROCHE</span>');
+    return badges.join("");
+  }
+
+  function renderCard(row, best, cheapest, nearest){
+    const {rec, p, dist} = row;
+    const isBest = p[fuel] === best;
+    const others = Object.keys(p).filter(key => key !== fuel)
+      .map(key => `${FUELS[key] || key} <b>${p[key].toFixed(3)}</b>`).join(" · ");
+    const updatedAt = relTime(rec[`${fuel}_maj`]);
+    const auto = String(rec.pop || "").toUpperCase() === "A";
+    const stationCoords = coords(rec);
+    const navQuery = encodeURIComponent(`${rec.adresse || ""} ${rec.cp || ""} ${rec.ville || ""}`.trim());
+    return `
+      <div class="card${isBest ? " best" : ""}" style="border-left:4px solid ${(FUEL_COLORS[fuel] || {}).c || 'var(--line)'}">
+        <div class="price">${p[fuel].toFixed(3)}<small>€</small></div>
+        <div class="info">
+          <div class="addr">${esc(rec.adresse || "Adresse non précisée")}</div>
+          <div class="loc">${esc(rec.cp || "")} ${esc(rec.ville || "")}</div>
+          <div class="badges">
+            ${dist != null ? `<span class="dist">à ${fmtDist(dist)}</span>` : ""}
+            ${priorityBadges(row, cheapest, nearest)}
+            ${isBest ? `<span class="tag">MEILLEUR PRIX</span>` : ""}
+            ${auto ? `<span class="hw">Autoroute</span>` : ""}
+            ${is24(rec) ? `<span class="hw">24/24</span>` : ""}
+          </div>
+          ${others ? `<div class="others">${others}</div>` : ""}
+          ${updatedAt ? `<div class="maj">Prix mis à jour ${updatedAt}</div>` : ""}
+          <a class="act" href="#" data-lat="${stationCoords ? stationCoords[0] : ""}" data-lon="${stationCoords ? stationCoords[1] : ""}" data-q="${navQuery}">Itinéraire →</a>
+        </div>
+      </div>`;
+  }
+
   function render(rows, head){
     if(!rows.length) return;
+    const isGpsResults = mode === "gps" && rows.some(row => row.dist != null);
+    const prioritized = isGpsResults ? orderGpsRows(rows) : {ordered:rows, cheapest:null, nearest:null};
+    rows = prioritized.ordered;
     lastRenderedRows = rows;
     const prices = rows.map(row => row.p[fuel]);
     const best = Math.min(...prices);
@@ -555,31 +634,16 @@
       ? `<div class="summary">De <b>${best.toFixed(3)}</b> à <b>${worst.toFixed(3)}</b> € — jusqu'à <b>${(spread * 50).toFixed(2)} €</b> d'écart sur un plein de 50 L.</div>`
       : "";
     let html = `<div class="count">${head}</div>${summary}`;
-    for(const {rec, p, dist} of rows){
-      const isBest = p[fuel] === best;
-      const others = Object.keys(p).filter(key => key !== fuel)
-        .map(key => `${FUELS[key] || key} <b>${p[key].toFixed(3)}</b>`).join(" · ");
-      const updatedAt = relTime(rec[`${fuel}_maj`]);
-      const auto = String(rec.pop || "").toUpperCase() === "A";
-      const stationCoords = coords(rec);
-      const navQuery = encodeURIComponent(`${rec.adresse || ""} ${rec.cp || ""} ${rec.ville || ""}`.trim());
-      html += `
-        <div class="card${isBest ? " best" : ""}" style="border-left:4px solid ${(FUEL_COLORS[fuel] || {}).c || 'var(--line)'}">
-          <div class="price">${p[fuel].toFixed(3)}<small>€</small></div>
-          <div class="info">
-            <div class="addr">${esc(rec.adresse || "Adresse non précisée")}</div>
-            <div class="loc">${esc(rec.cp || "")} ${esc(rec.ville || "")}</div>
-            <div class="badges">
-              ${dist != null ? `<span class="dist">à ${fmtDist(dist)}</span>` : ""}
-              ${isBest ? `<span class="tag">MEILLEUR PRIX</span>` : ""}
-              ${auto ? `<span class="hw">Autoroute</span>` : ""}
-              ${is24(rec) ? `<span class="hw">24/24</span>` : ""}
-            </div>
-            ${others ? `<div class="others">${others}</div>` : ""}
-            ${updatedAt ? `<div class="maj">Prix mis à jour ${updatedAt}</div>` : ""}
-            <a class="act" href="#" data-lat="${stationCoords ? stationCoords[0] : ""}" data-lon="${stationCoords ? stationCoords[1] : ""}" data-q="${navQuery}">Itinéraire →</a>
-          </div>
-        </div>`;
+    if(isGpsResults && prioritized.cheapest){
+      html += `<div class="priority-title">Décision immédiate</div><div class="priority">`;
+      html += renderCard(prioritized.cheapest, best, prioritized.cheapest, prioritized.nearest);
+      if(prioritized.nearest && prioritized.nearest !== prioritized.cheapest){
+        html += renderCard(prioritized.nearest, best, prioritized.cheapest, prioritized.nearest);
+      }
+      html += `</div>`;
+    }
+    for(const row of rows){
+      html += renderCard(row, best, prioritized.cheapest, prioritized.nearest);
     }
     out.innerHTML = html;
     finalizeVoiceFlow(buildVoiceSummary(rows[0]), true, false);
@@ -667,8 +731,7 @@
       }
       const filtered = filter24(rows);
       rows = filtered.rows;
-      const orderLabel = sortBy === "price" ? "moins cher d'abord" : "la plus proche d'abord";
-      render(rows, `${rows.length} station(s) · ${FUELS[fuel]}, ${orderLabel}${filtered.note}`);
+      render(rows, `${rows.length} station(s) · ${FUELS[fuel]}, moins cher puis plus proche${filtered.note}`);
     }, error => {
       const message = {
         1:"Accès à la position refusé. Autorise-le dans les réglages, ou passe en mode « Par commune ».",
