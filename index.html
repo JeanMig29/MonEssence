@@ -245,22 +245,6 @@
       <button class="voice-btn" id="voiceBtn" type="button">Parler</button>
       <input id="voiceQuery" placeholder="Dicte ou saisis une demande naturelle" autocomplete="off" enterkeyhint="search">
     </div>
-    <button class="go secondary" id="voiceGo" type="button">Analyser la demande</button>
-    <div class="voice-state" id="voiceState"></div>
-    <div class="voice-meta" id="voiceMeta"></div>
-    <details class="ai-settings">
-      <summary>Réglages Gemini</summary>
-      <p class="hint">Intégration propre recommandée: un proxy serveur qui garde la clé côté backend. Le mode “clé directe” reste utile pour tester un prototype statique, mais la clé sera exposée au navigateur.</p>
-      <div class="field">
-        <label for="geminiProxyUrl">URL du proxy Gemini</label>
-        <input id="geminiProxyUrl" placeholder="https://ton-backend.example/api/gemini-intent" autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="geminiModel">Modèle Gemini</label>
-        <input id="geminiModel" placeholder="gemini-2.5-flash-lite" autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="geminiApiKey">Clé API directe (test seulement)</label>
         <input id="geminiApiKey" type="password" placeholder="AIza…" autocomplete="off">
       </div>
       <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px;">
@@ -342,33 +326,6 @@
   const PRICE_HISTORY_MEM = "carbu_price_history";
   const DEFAULT_GEMINI_CONFIG = window.MON_ESSENCE_CONFIG || {};
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  /* ============================================
-     DOCUMENTATION: Données DGCCRF
-     ============================================
-     SOURCE: data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/prix-des-carburants-en-france-flux-instantane-v2
-     
-     LIMITATIONS CONNUES:
-     1. Aucun SIRET exposé — impossible d'enrichir via Pappers ou autre API de RCS
-     2. ID interne transactionnel non mappable à d'autres sources officielles
-     3. Délai de sync ~10-15 min, décalage possible lors des pics
-     4. Incomplet: stations indépendantes petites, fermées récemment, en restructuration souvent absentes
-     5. Données adresse/ville parfois mal normalisées (accents, tirets, abréviations variables)
-     6. Services optionnels et présence 24/24 détectés par heuristiques (champs descriptifs)
-     
-     CHAMPS CLÉS:
-     - id: Identifiant transactionnel unique (ex: 5100009) — pas un SIRET
-     - adresse, ville, cp: Géolocalisation basique
-     - geom: {lat, lon} — coordonnées normales (pas 1e5)
-     - prix[]: Array JSON {nom, maj, valeur} pour chaque carburant
-     - horaires: JSON complexe, parsé pour détection "24/24"
-     - services: Array descriptif (gonflage, bornes élec, etc.)
-     
-     RECONNAISSANCE DE MARQUES:
-     Utilise analyse textuelle adresse+ville (detectBrand) car pas d'identifiant enseigne.
-     Fallback sur "Indépendant" pour stations sans match pattern.
-     Cache local pour éviter redondance lors d'affichage multiple cartes.
-     ============================================ */
 
   let fuel = "gazole";
   let mode = "gps";
@@ -720,113 +677,44 @@
     if(isNaN(timestamp)) return "";
     const delta = (Date.now() - timestamp) / 1000;
     if(delta < 3600) return `il y a ${Math.max(1, Math.round(delta / 60))} min`;
-  const brandDetectionCache = new Map();
+    if(delta < 86400) return `il y a ${Math.round(delta / 3600)} h`;
+    const days = Math.round(delta / 86400);
+    return days === 1 ? "hier" : `il y a ${days} j`;
+  }
+
+  function is24(rec){
+    const auto24 = String(rec.horaires_automate_24_24 ?? "").toLowerCase();
+    if(auto24 === "1" || auto24 === "oui" || auto24 === "true" || auto24.includes("24")) return true;
+    return String(rec.horaires ?? "").includes("24/24");
+  }
 
   function detectBrand(rec){
-    if(!rec || !rec.id) return "unknown";
-    if(brandDetectionCache.has(rec.id)) return brandDetectionCache.get(rec.id);
-
-    const fullText = `${rec.adresse || ""} ${rec.ville || ""}`.toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
+    const fullText = `${rec.adresse} ${rec.ville}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const checks = [
-      [/\b(e\.?leclerc|leclerc)\b/, "leclerc"],
+      [/\be\.?leclerc\b/, "leclerc"],
+      [/\bleclerc\b/, "leclerc"],
       [/\bcarrefour\b/, "carrefour"],
-      [/\b(intermarche|inter marche|inter-marche)\b/, "intermarche"],
-      [/\b(total|totalenergies)\b/, "total"],
+      [/\bintermarche\b/, "intermarche"],
+      [/\binter marche\b/, "intermarche"],
+      [/\btotal\b/, "total"],
       [/\besso\b/, "esso"],
       [/\bshell\b/, "shell"],
       [/\blidl\b/, "lidl"],
       [/\bcora\b/, "cora"],
-      [/\b(casino|geant casino)\b/, "casino"],
-      [/\b(systeme u|systeme-u|super u|hyper u)\b/, "u"],
-      [/\b(bp|british petroleum)\b/, "shell"],
-      [/\belan\b/, "leclerc"],
-      [/\buve\b/, "u"],
-      [/\bautocall\b/, "total"],
-      [/\boutanis\b/, "leclerc"]
+      [/\bcasino\b/, "casino"],
+      [/\bgeant casino\b/, "casino"],
+      [/\bsysteme u\b/, "u"],
+      [/\bsysteme-u\b/, "u"],
+      [/\b(super|hyper)?u\b/, "u"]
     ];
-
     for(const [matcher, key] of checks){
-      if(matcher.test(fullText)){
-        brandDetectionCache.set(rec.id, key);
-        return key;
-      }
+      if(matcher.test(fullText)) return key;
     }
-
-    const result = "unknown";
-    brandDetectionCache.set(rec.id, result);
-    return result;
-  }
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-    const hasGeo = typeof lat === "number" && typeof lon === "number" && isFinite(lat) && isFinite(lon);
-          ville: rec.ville || '',
-          cp: rec.cp || ''
-        }),
-        timeout: 2000  /* Pas bloquer si serveur lent */
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.brandKey && FUELS[result.brandKey]) {
-          brandLookupCache.set(rec.id, result.brandKey);
-          return result.brandKey;
-        }
-      }
-    } catch (error) {
-      /* Silencieux: ne pas bloquer le rendu si lookup fail */
-    }
-    return null;
-  }
-  
-  function updateBrandLookupUrl(url) {
-    const trimmed = url.trim();
-    if (trimmed) {
-      localStorage.setItem('brand_lookup_url', trimmed);
-    } else {
-      localStorage.removeItem('brand_lookup_url');
-    }
-    brandLookupCache.clear();  /* Invalider cache si URL change */
-  }
-    if(!rec || !rec.id) return "unknown";
-    if(brandDetectionCache.has(rec.id)) return brandDetectionCache.get(rec.id);
-    
-    const fullText = `${rec.adresse || ""} ${rec.ville || ""}`.toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    
-    const checks = [
-      [/\b(e\.?leclerc|leclerc)\b/, "leclerc"],
-      [/\bcarrefour\b/, "carrefour"],
-      [/\b(intermarche|inter marche|inter-marche)\b/, "intermarche"],
-      [/\b(total|totalenergies)\b/, "total"],
-      [/\besso\b/, "esso"],
-      [/\bshell\b/, "shell"],
-      [/\blidl\b/, "lidl"],
-      [/\bcora\b/, "cora"],
-      [/\b(casino|geant casino)\b/, "casino"],
-      [/\b(systeme u|systeme-u|super u|hyper u)\b/, "u"],
-      [/\b(bp|british petroleum)\b/, "shell"],
-      [/\belan\b/, "leclerc"],
-      [/\buve\b/, "u"],
-      [/\bautocall\b/, "total"],
-      [/\boutanis\b/, "leclerc"]
-    ];
-    
-    for(const [matcher, key] of checks){
-      if(matcher.test(fullText)){
-        brandDetectionCache.set(rec.id, key);
-        return key;
-      }
-    }
-    
-    const result = "unknown";
-    brandDetectionCache.set(rec.id, result);
-    return result;
+    return "unknown";
   }
 
   function navUrls(lat, lon, query){
-    const hasGeo = typeof lat === "number" && typeof lon === "number" && isFinite(lat) && isFinite(lon);
+    const hasGeo = lat && lon;
     return {
       waze: hasGeo ? `https://waze.com/ul?ll=${lat},${lon}&navigate=yes` : `https://waze.com/ul?q=${query}&navigate=yes`,
       gmaps: hasGeo ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}` : `https://www.google.com/maps/dir/?api=1&destination=${query}`,
@@ -1423,47 +1311,6 @@
     rememberAi();
     refreshAssistantState();
   });
-
-  const brandLookupUrlInput = document.getElementById("brandLookupUrl");
-  const testBrandServerBtn = document.getElementById("testBrandServer");
-  const brandTestInfo = document.getElementById("brandTestInfo");
-  
-  if(brandLookupUrlInput) {
-    brandLookupUrlInput.value = BRAND_LOOKUP_URL;
-    brandLookupUrlInput.addEventListener("input", event => {
-      updateBrandLookupUrl(event.target.value);
-    });
-  }
-  
-  if(testBrandServerBtn) {
-    testBrandServerBtn.onclick = async () => {
-      if(!BRAND_LOOKUP_URL) {
-        brandTestInfo.innerHTML = '<span style="color:var(--danger)">❌ URL non configurée</span>';
-        return;
-      }
-      brandTestInfo.innerHTML = '<span style="color:var(--muted)">🔄 Test en cours…</span>';
-      try {
-        const response = await fetch(BRAND_LOOKUP_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            adresse: 'Test',
-            ville: 'Paris',
-            cp: '75001'
-          }),
-          timeout: 3000
-        });
-        if(response.ok) {
-          const data = await response.json();
-          brandTestInfo.innerHTML = `<span style="color:var(--best)">✅ Serveur OK (source: ${data.source})</span>`;
-        } else {
-          brandTestInfo.innerHTML = `<span style="color:var(--danger)">❌ HTTP ${response.status}</span>`;
-        }
-      } catch(e) {
-        brandTestInfo.innerHTML = `<span style="color:var(--danger)">❌ Erreur: ${e.message}</span>`;
-      }
-    };
-  }
 
   const navbg = document.getElementById("navbg");
   const navsheet = document.getElementById("navsheet");
