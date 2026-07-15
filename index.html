@@ -122,6 +122,7 @@
   .hw{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--text);
       border:1px solid var(--line);border-radius:999px;padding:2px 8px}
   .maj{color:var(--muted);font-size:11.5px;margin-top:6px}
+  .maj-stale{color:#ff3b30;font-weight:700}
   .act{display:inline-block;margin-top:9px;font-size:12.5px;font-weight:700;color:var(--text);
        text-decoration:none;border:1px solid var(--line);border-radius:9px;padding:6px 11px}
   .act:active{transform:translateY(1px);background:var(--panel-2)}
@@ -149,9 +150,18 @@
   .onboarding-fuel-btn:active{transform:scale(0.98)}
   .onboarding-fuel-btn.selected{border-color:var(--sel);background:var(--sel);color:var(--sel-ink)}
   .onboarding-fuel-dot{width:24px;height:24px;border-radius:50%;margin:0 auto}
+  .prefs-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 14px}
+  .prefs-list{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+  .pref-pill{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;
+             border:1px solid var(--line);background:var(--panel-2);font-size:12px;font-weight:700;color:var(--text)}
+  .pref-empty{font-size:12.5px;color:var(--muted)}
+  .prefs-edit{flex:0 0 auto;border:1px solid var(--line);background:transparent;color:var(--text);
+              border-radius:10px;padding:8px 10px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .prefs-edit:active{transform:translateY(1px)}
 
   @media (max-width:480px){
     .voice-row{grid-template-columns:1fr}
+    .prefs-row{align-items:flex-start;flex-direction:column}
   }
 </style>
 </head>
@@ -201,6 +211,11 @@
   <div class="field">
     <label>Carburant</label>
     <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="prefs-row" aria-live="polite">
+    <div class="prefs-list" id="preferredFuelsSummary"></div>
+    <button class="prefs-edit" id="editPreferredFuels" type="button">Modifier mes carburants</button>
   </div>
 
   <div class="field">
@@ -289,7 +304,7 @@
     cora:{name:"Cora",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#00A3A3"/><text x="50" y="65" font-size="40" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial">C</text></svg>'},
     casino:{name:"Casino",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#C70031"/><text x="50" y="65" font-size="35" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial">♣</text></svg>'},
     u:{name:"Système U",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#D41F36"/><text x="50" y="65" font-size="48" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial">U</text></svg>'},
-    independent:{name:"Indépendante",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#666"/><circle cx="30" cy="30" r="8" fill="#fff"/><circle cx="70" cy="30" r="8" fill="#fff"/><path d="M30 50 L70 50 M35 70 L65 70 Q65 80 50 80 Q35 80 35 70" fill="#fff"/></svg>'}
+    unknown:{name:"Enseigne inconnue",logo:""}
   };
   const RADIUS_OPTIONS = [5, 10, 20, 30];
   const SORT_OPTIONS = {
@@ -337,6 +352,8 @@
   const onboardingSheet = document.getElementById("onboardingsheet");
   const onboardingFuels = document.getElementById("onboardingFuels");
   const onboardingConfirm = document.getElementById("onboardingConfirm");
+  const preferredFuelsSummary = document.getElementById("preferredFuelsSummary");
+  const editPreferredFuelsBtn = document.getElementById("editPreferredFuels");
 
   const mem = (() => {
     try{ return JSON.parse(localStorage.getItem(MEM) || "{}"); }
@@ -441,8 +458,20 @@
     onboardingSheet.classList.add("show");
   }
 
+  function renderPreferredFuelsSummary(){
+    if(!preferredFuels.length){
+      preferredFuelsSummary.innerHTML = '<div class="pref-empty">Aucun carburant préféré enregistré.</div>';
+      return;
+    }
+    preferredFuelsSummary.innerHTML = preferredFuels
+      .filter(key => FUELS[key])
+      .map(key => `<span class="pref-pill"><span class="dot" style="background:${FUEL_COLORS[key].c}"></span>${FUELS[key]}</span>`)
+      .join("");
+  }
+
   function closeOnboarding(){
     remember();
+    renderPreferredFuelsSummary();
     onboardingBg.classList.remove("show");
     onboardingSheet.classList.remove("show");
   }
@@ -476,6 +505,7 @@
     [...chipsEl.children].forEach(chip => chip.setAttribute("aria-pressed", chip.dataset.fuel === fuel));
     setFuelVar();
     remember();
+    renderPreferredFuelsSummary();
   }
 
   function syncRadiusChips(){
@@ -542,6 +572,8 @@
     syncFilterChip();
   };
   filtersEl.appendChild(filter24Btn);
+
+  editPreferredFuelsBtn.onclick = () => showOnboarding();
 
   function setMode(nextMode){
     mode = nextMode;
@@ -633,7 +665,7 @@
     for(const [matcher, key] of checks){
       if(matcher.test(fullText)) return key;
     }
-    return "independent";
+    return "unknown";
   }
 
   function navUrls(lat, lon, query){
@@ -717,7 +749,6 @@
 
   function priorityBadges(row, cheapest, nearest){
     const badges = [];
-    if(row === cheapest) badges.push('<span class="decision price">MOINS CHER</span>');
     if(row === nearest) badges.push('<span class="decision distance">PLUS PROCHE</span>');
     return badges.join("");
   }
@@ -732,19 +763,20 @@
     const stationCoords = coords(rec);
     const navQuery = encodeURIComponent(`${rec.adresse || ""} ${rec.cp || ""} ${rec.ville || ""}`.trim());
     const lastUpdateTimestamp = Date.parse(String(rec[`${fuel}_maj`]).replace(" ", "T"));
+    const isStaleUpdate = !isNaN(lastUpdateTimestamp) && (Date.now() - lastUpdateTimestamp) > 86400000;
     const daysSinceLastUpdate = !isNaN(lastUpdateTimestamp) ? Math.ceil((Date.now() - lastUpdateTimestamp) / 86400000) : null;
     const evolutionSinceUpdate = daysSinceLastUpdate && daysSinceLastUpdate > 0 ? getEvolution(fuel, daysSinceLastUpdate) : null;
     const updateColor = evolutionSinceUpdate?.percent > 0 ? '#E9795B' : '#43C08A';
     const updateArrow = evolutionSinceUpdate?.percent > 0 ? '↑' : '↓';
     const evolutionHtml = evolutionSinceUpdate ? `<div class="evolution" style="font-size:12px;color:${updateColor};margin-top:8px;font-weight:600">${updateArrow} ${Math.abs(evolutionSinceUpdate.percent)}% depuis MàJ</div>` : "";
     const brandKey = detectBrand(rec);
-    const brand = BRANDS[brandKey] || BRANDS.independent;
+    const brand = BRANDS[brandKey] || BRANDS.unknown;
     return `
       <div class="card${isBest ? " best" : ""}" style="border-left:4px solid ${(FUEL_COLORS[fuel] || {}).c || 'var(--line)'}">
         <div class="price">${p[fuel].toFixed(3)}<small>€</small></div>
         <div class="info">
           <div class="brand-header" style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <div style="width:32px;height:32px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--panel-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center">${brand.logo}</div>
+            ${brand.logo ? `<div style="width:32px;height:32px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--panel-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center">${brand.logo}</div>` : ""}
             <div style="font-weight:700;font-size:13px;color:var(--text)">${brand.name}</div>
           </div>
           <div class="addr">${esc(rec.adresse || "Adresse non précisée")}</div>
@@ -757,7 +789,7 @@
             ${is24(rec) ? `<span class="hw">24/24</span>` : ""}
           </div>
           ${others ? `<div class="others">${others}</div>` : ""}
-          ${updatedAt ? `<div class="maj">Prix mis à jour ${updatedAt}</div>` : ""}
+          ${updatedAt ? `<div class="maj${isStaleUpdate ? ' maj-stale' : ''}">Prix mis à jour ${updatedAt}</div>` : ""}
           ${evolutionHtml}
           <a class="act" href="#" data-lat="${stationCoords ? stationCoords[0] : ""}" data-lon="${stationCoords ? stationCoords[1] : ""}" data-q="${navQuery}">Itinéraire →</a>
         </div>
@@ -778,16 +810,21 @@
       ? `<div class="summary">De <b>${best.toFixed(3)}</b> à <b>${worst.toFixed(3)}</b> € — jusqu'à <b>${(spread * 50).toFixed(2)} €</b> d'écart sur un plein de 50 L.</div>`
       : "";
     let html = `<div class="count">${head}</div>${summary}`;
+    const displayedIds = new Set();
     if(isGpsResults && prioritized.cheapest){
       html += `<div class="priority-title">Décision immédiate</div><div class="priority">`;
       html += renderCard(prioritized.cheapest, best, prioritized.cheapest, prioritized.nearest);
+      displayedIds.add(prioritized.cheapest.rec.id);
       if(prioritized.nearest && prioritized.nearest !== prioritized.cheapest){
         html += renderCard(prioritized.nearest, best, prioritized.cheapest, prioritized.nearest);
+        displayedIds.add(prioritized.nearest.rec.id);
       }
       html += `</div>`;
     }
     for(const row of rows){
-      html += renderCard(row, best, prioritized.cheapest, prioritized.nearest);
+      if(!displayedIds.has(row.rec.id)){
+        html += renderCard(row, best, prioritized.cheapest, prioritized.nearest);
+      }
       trackPrice(fuel, row.p[fuel]);
     }
     out.innerHTML = html;
@@ -1253,6 +1290,7 @@
   syncRadiusChips();
   syncSortChips();
   syncFilterChip();
+  renderPreferredFuelsSummary();
   setMode(mode);
   refreshAssistantState();
   setVoiceMeta("Prêt pour une demande naturelle ou vocale.", false);
