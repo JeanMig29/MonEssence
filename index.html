@@ -61,6 +61,7 @@
   .hint{color:var(--muted);font-size:13px;margin:0 2px 10px;line-height:1.5}
 
   .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chips.hidden{display:none}
   .chip{padding:9px 13px;border-radius:999px;border:1px solid var(--line);
         background:transparent;color:var(--muted);font-size:14px;font-weight:600;cursor:pointer}
   .chip[aria-pressed="true"]{background:var(--sel);color:var(--sel-ink);border-color:var(--sel)}
@@ -150,18 +151,23 @@
   .onboarding-fuel-btn:active{transform:scale(0.98)}
   .onboarding-fuel-btn.selected{border-color:var(--sel);background:var(--sel);color:var(--sel-ink)}
   .onboarding-fuel-dot{width:24px;height:24px;border-radius:50%;margin:0 auto}
-  .prefs-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 14px}
-  .prefs-list{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
-  .pref-pill{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;
-             border:1px solid var(--line);background:var(--panel-2);font-size:12px;font-weight:700;color:var(--text)}
-  .pref-empty{font-size:12.5px;color:var(--muted)}
+  .fuel-section{margin-bottom:14px}
+  .fuel-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px}
+  .fuel-sub{color:var(--muted);font-size:12.5px;line-height:1.45;margin:4px 2px 0}
+  .fuel-grid{gap:10px}
+  .fuel-grid .chip{padding:11px 14px;font-weight:700;color:var(--text);background:var(--panel-2)}
+  .fuel-grid .chip[aria-pressed="true"]{background:var(--sel);color:var(--sel-ink);border-color:var(--sel)}
+  .fuel-grid .chip.is-secondary{color:var(--muted);background:transparent}
   .prefs-edit{flex:0 0 auto;border:1px solid var(--line);background:transparent;color:var(--text);
               border-radius:10px;padding:8px 10px;font-size:12.5px;font-weight:700;cursor:pointer}
   .prefs-edit:active{transform:translateY(1px)}
+  .prefs-link{margin-top:10px;padding:0;border:0;background:transparent;color:var(--muted);
+              font-size:12.5px;font-weight:700;cursor:pointer}
+  .other-fuels{margin-top:10px}
 
   @media (max-width:480px){
     .voice-row{grid-template-columns:1fr}
-    .prefs-row{align-items:flex-start;flex-direction:column}
+    .fuel-head{align-items:flex-start;flex-direction:column}
   }
 </style>
 </head>
@@ -208,14 +214,17 @@
     </div>
   </div>
 
-  <div class="field">
-    <label>Carburant</label>
-    <div class="chips" id="chips"></div>
-  </div>
-
-  <div class="prefs-row" aria-live="polite">
-    <div class="prefs-list" id="preferredFuelsSummary"></div>
-    <button class="prefs-edit" id="editPreferredFuels" type="button">Modifier mes carburants</button>
+  <div class="field fuel-section" aria-live="polite">
+    <div class="fuel-head">
+      <div>
+        <label>Carburants préférés</label>
+        <div class="fuel-sub">Sélectionne ton carburant principal ici. Les autres restent accessibles seulement si besoin.</div>
+      </div>
+      <button class="prefs-edit" id="editPreferredFuels" type="button">Personnaliser</button>
+    </div>
+    <div class="chips fuel-grid" id="chips"></div>
+    <button class="prefs-link" id="toggleOtherFuels" type="button" aria-expanded="false">Afficher les autres carburants</button>
+    <div class="chips other-fuels hidden" id="otherFuels"></div>
   </div>
 
   <div class="field">
@@ -327,12 +336,14 @@
   let lastRenderedRows = [];
   let recognition = null;
   let isListening = false;
+  let showOtherFuels = false;
 
   const out = document.getElementById("out");
   const goBtn = document.getElementById("go");
   const communeInput = document.getElementById("commune");
   const cpInput = document.getElementById("cp");
   const chipsEl = document.getElementById("chips");
+  const otherFuelsEl = document.getElementById("otherFuels");
   const radiusEl = document.getElementById("radius");
   const sortsEl = document.getElementById("sorts");
   const filtersEl = document.getElementById("filters");
@@ -352,8 +363,8 @@
   const onboardingSheet = document.getElementById("onboardingsheet");
   const onboardingFuels = document.getElementById("onboardingFuels");
   const onboardingConfirm = document.getElementById("onboardingConfirm");
-  const preferredFuelsSummary = document.getElementById("preferredFuelsSummary");
   const editPreferredFuelsBtn = document.getElementById("editPreferredFuels");
+  const toggleOtherFuelsBtn = document.getElementById("toggleOtherFuels");
 
   const mem = (() => {
     try{ return JSON.parse(localStorage.getItem(MEM) || "{}"); }
@@ -365,6 +376,9 @@
   only24 = !!mem.only24;
   if(mem.mode === "manual" || mem.mode === "gps") mode = mem.mode;
   if(mem.preferredFuels && Array.isArray(mem.preferredFuels)) preferredFuels = mem.preferredFuels;
+  preferredFuels = preferredFuels.filter(key => FUELS[key]);
+  if(!preferredFuels.length) preferredFuels = [fuel && FUELS[fuel] ? fuel : "e10"];
+  if(!FUELS[fuel]) fuel = preferredFuels[0];
 
   const aiMem = (() => {
     try{ return JSON.parse(localStorage.getItem(AI_MEM) || "{}"); }
@@ -458,20 +472,60 @@
     onboardingSheet.classList.add("show");
   }
 
-  function renderPreferredFuelsSummary(){
-    if(!preferredFuels.length){
-      preferredFuelsSummary.innerHTML = '<div class="pref-empty">Aucun carburant préféré enregistré.</div>';
-      return;
-    }
-    preferredFuelsSummary.innerHTML = preferredFuels
-      .filter(key => FUELS[key])
-      .map(key => `<span class="pref-pill"><span class="dot" style="background:${FUEL_COLORS[key].c}"></span>${FUELS[key]}</span>`)
-      .join("");
+  function ensurePreferredFuelSelection(){
+    preferredFuels = preferredFuels.filter(key => FUELS[key]);
+    if(!preferredFuels.length) preferredFuels = [fuel && FUELS[fuel] ? fuel : "e10"];
+    if(!FUELS[fuel]) fuel = preferredFuels[0];
+  }
+
+  function renderFuelSelector(){
+    ensurePreferredFuelSelection();
+    const preferredSet = new Set(preferredFuels);
+    const activeFuelIsSecondary = !preferredSet.has(fuel);
+    chipsEl.innerHTML = "";
+    otherFuelsEl.innerHTML = "";
+
+    preferredFuels.forEach(key => {
+      const button = document.createElement("button");
+      button.className = "chip";
+      button.type = "button";
+      button.dataset.fuel = key;
+      button.setAttribute("aria-pressed", key === fuel);
+      button.innerHTML = `<span class="dot" style="background:${FUEL_COLORS[key].c}"></span>${FUELS[key]}`;
+      button.onclick = () => {
+        fuel = key;
+        syncFuelChips();
+      };
+      chipsEl.appendChild(button);
+    });
+
+    Object.entries(FUELS).forEach(([key, label]) => {
+      if(preferredSet.has(key)) return;
+      const button = document.createElement("button");
+      button.className = "chip is-secondary";
+      button.type = "button";
+      button.dataset.fuel = key;
+      button.setAttribute("aria-pressed", key === fuel);
+      button.innerHTML = `<span class="dot" style="background:${FUEL_COLORS[key].c}"></span>${label}`;
+      button.onclick = () => {
+        fuel = key;
+        syncFuelChips();
+      };
+      otherFuelsEl.appendChild(button);
+    });
+
+    const hasOtherFuels = otherFuelsEl.children.length > 0;
+    const shouldShowOtherFuels = hasOtherFuels && (showOtherFuels || activeFuelIsSecondary);
+    toggleOtherFuelsBtn.classList.toggle("hidden", !hasOtherFuels);
+    otherFuelsEl.classList.toggle("hidden", !shouldShowOtherFuels);
+    toggleOtherFuelsBtn.setAttribute("aria-expanded", String(shouldShowOtherFuels));
+    toggleOtherFuelsBtn.textContent = shouldShowOtherFuels ? "Masquer les autres carburants" : "Afficher les autres carburants";
   }
 
   function closeOnboarding(){
+    ensurePreferredFuelSelection();
     remember();
-    renderPreferredFuelsSummary();
+    renderFuelSelector();
     onboardingBg.classList.remove("show");
     onboardingSheet.classList.remove("show");
   }
@@ -502,10 +556,9 @@
   }
 
   function syncFuelChips(){
-    [...chipsEl.children].forEach(chip => chip.setAttribute("aria-pressed", chip.dataset.fuel === fuel));
+    [...chipsEl.children, ...otherFuelsEl.children].forEach(chip => chip.setAttribute("aria-pressed", chip.dataset.fuel === fuel));
     setFuelVar();
     remember();
-    renderPreferredFuelsSummary();
   }
 
   function syncRadiusChips(){
@@ -523,19 +576,6 @@
     if(filter24Btn) filter24Btn.setAttribute("aria-pressed", only24);
     remember();
   }
-
-  Object.entries(FUELS).forEach(([key, label]) => {
-    const button = document.createElement("button");
-    button.className = "chip";
-    button.type = "button";
-    button.dataset.fuel = key;
-    button.innerHTML = `<span class="dot" style="background:${FUEL_COLORS[key].c}"></span>${label}`;
-    button.onclick = () => {
-      fuel = key;
-      syncFuelChips();
-    };
-    chipsEl.appendChild(button);
-  });
 
   RADIUS_OPTIONS.forEach(km => {
     const button = document.createElement("button");
@@ -574,6 +614,10 @@
   filtersEl.appendChild(filter24Btn);
 
   editPreferredFuelsBtn.onclick = () => showOnboarding();
+  toggleOtherFuelsBtn.onclick = () => {
+    showOtherFuels = !showOtherFuels;
+    renderFuelSelector();
+  };
 
   function setMode(nextMode){
     mode = nextMode;
@@ -1286,11 +1330,11 @@
 
   if(mem.commune) communeInput.value = mem.commune;
   if(mem.cp) cpInput.value = mem.cp;
+  renderFuelSelector();
   syncFuelChips();
   syncRadiusChips();
   syncSortChips();
   syncFilterChip();
-  renderPreferredFuelsSummary();
   setMode(mode);
   refreshAssistantState();
   setVoiceMeta("Prêt pour une demande naturelle ou vocale.", false);
