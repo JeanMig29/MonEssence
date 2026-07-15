@@ -123,6 +123,7 @@
   .hw{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--text);
       border:1px solid var(--line);border-radius:999px;padding:2px 8px}
   .maj{color:var(--muted);font-size:11.5px;margin-top:6px}
+  .maj-fresh{color:#43C08A;font-weight:700}
   .maj-stale{color:#ff3b30;font-weight:700}
   .act{display:inline-block;margin-top:9px;font-size:12.5px;font-weight:700;color:var(--text);
        text-decoration:none;border:1px solid var(--line);border-radius:9px;padding:6px 11px}
@@ -780,10 +781,20 @@
     const cheapest = findCheapestRow(rows);
     const nearest = findNearestRow(rows);
     const leading = [];
-    if(cheapest) leading.push(cheapest);
-    if(nearest && nearest !== cheapest) leading.push(nearest);
+    if(sortBy === "distance"){
+      if(nearest) leading.push(nearest);
+      if(cheapest && cheapest !== nearest) leading.push(cheapest);
+    } else {
+      if(cheapest) leading.push(cheapest);
+      if(nearest && nearest !== cheapest) leading.push(nearest);
+    }
     const remainder = rows.filter(row => !leading.includes(row));
     remainder.sort((a, b) => {
+      if(sortBy === "distance"){
+        const byDist = (a.dist ?? 1e9) - (b.dist ?? 1e9);
+        if(Math.abs(byDist) > 0.001) return byDist;
+        return a.p[fuel] - b.p[fuel];
+      }
       const byPrice = a.p[fuel] - b.p[fuel];
       if(Math.abs(byPrice) > 0.0001) return byPrice;
       return (a.dist ?? 1e9) - (b.dist ?? 1e9);
@@ -807,7 +818,9 @@
     const stationCoords = coords(rec);
     const navQuery = encodeURIComponent(`${rec.adresse || ""} ${rec.cp || ""} ${rec.ville || ""}`.trim());
     const lastUpdateTimestamp = Date.parse(String(rec[`${fuel}_maj`]).replace(" ", "T"));
-    const isStaleUpdate = !isNaN(lastUpdateTimestamp) && (Date.now() - lastUpdateTimestamp) > 86400000;
+    const updateAge = !isNaN(lastUpdateTimestamp) ? Date.now() - lastUpdateTimestamp : null;
+    const isFreshUpdate = updateAge !== null && updateAge < 43200000;
+    const isStaleUpdate = updateAge !== null && updateAge > 86400000;
     const daysSinceLastUpdate = !isNaN(lastUpdateTimestamp) ? Math.ceil((Date.now() - lastUpdateTimestamp) / 86400000) : null;
     const evolutionSinceUpdate = daysSinceLastUpdate && daysSinceLastUpdate > 0 ? getEvolution(fuel, daysSinceLastUpdate) : null;
     const updateColor = evolutionSinceUpdate?.percent > 0 ? '#E9795B' : '#43C08A';
@@ -833,7 +846,7 @@
             ${is24(rec) ? `<span class="hw">24/24</span>` : ""}
           </div>
           ${others ? `<div class="others">${others}</div>` : ""}
-          ${updatedAt ? `<div class="maj${isStaleUpdate ? ' maj-stale' : ''}">Prix mis à jour ${updatedAt}</div>` : ""}
+          ${updatedAt ? `<div class="maj${isFreshUpdate ? ' maj-fresh' : isStaleUpdate ? ' maj-stale' : ''}">Prix mis à jour ${updatedAt}</div>` : ""}
           ${evolutionHtml}
           <a class="act" href="#" data-lat="${stationCoords ? stationCoords[0] : ""}" data-lon="${stationCoords ? stationCoords[1] : ""}" data-q="${navQuery}">Itinéraire →</a>
         </div>
