@@ -142,6 +142,13 @@
   .decision{font-size:11px;font-weight:800;letter-spacing:.06em;border-radius:999px;padding:2px 8px}
   .decision.price{color:var(--best);border:1px solid var(--best)}
   .decision.distance{color:var(--text);border:1px solid var(--line)}
+  .onboarding-fuels{display:grid;gap:12px;grid-template-columns:repeat(2,1fr);margin-bottom:14px}
+  .onboarding-fuel-btn{padding:14px;border-radius:12px;border:2px solid var(--line);
+                       background:transparent;color:var(--text);font-weight:700;font-size:15px;
+                       cursor:pointer;text-align:center;display:flex;flex-direction:column;gap:6px}
+  .onboarding-fuel-btn:active{transform:scale(0.98)}
+  .onboarding-fuel-btn.selected{border-color:var(--sel);background:var(--sel);color:var(--sel-ink)}
+  .onboarding-fuel-dot{width:24px;height:24px;border-radius:50%;margin:0 auto}
 
   @media (max-width:480px){
     .voice-row{grid-template-columns:1fr}
@@ -251,6 +258,14 @@
   <a class="cancel" id="nav-cancel" href="#">Annuler</a>
 </div>
 
+<div class="sheet-bg" id="onboardingbg"></div>
+<div class="sheet" id="onboardingsheet" role="dialog" aria-label="Choisir tes carburants préférés">
+  <h3>Tes carburants préférés</h3>
+  <p class="hint" style="margin-bottom:16px">Sélectionne les carburants que tu utilises généralement. Ils s'afficheront en priorité dans les résultats.</p>
+  <div class="onboarding-fuels" id="onboardingFuels"></div>
+  <button class="go" id="onboardingConfirm" type="button">C'est noté ✓</button>
+</div>
+
 <script>
   const API = "https://data.economie.gouv.fr/api/explore/v2.1/catalog/" +
               "datasets/prix-des-carburants-en-france-flux-instantane-v2/records";
@@ -263,6 +278,19 @@
     e85:{c:"#4C82F0", ink:"#050f28"},
     gplc:{c:"#22B8B0", ink:"#04211f"}
   };
+  const BRANDS = {
+    leclerc:{name:"Leclerc",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#003DA5"/><text x="50" y="60" font-size="48" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial">E</text></svg>'},
+    carrefour:{name:"Carrefour",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#E31842"/><text x="50" y="65" font-size="40" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial">C</text></svg>'},
+    intermarche:{name:"Intermarché",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#1B5BA8"/><text x="50" y="65" font-size="36" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial">IM</text></svg>'},
+    total:{name:"TotalEnergies",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#EC1C24"/><circle cx="50" cy="50" r="30" fill="#fff"/><circle cx="50" cy="50" r="25" fill="#EC1C24"/><text x="50" y="60" font-size="32" font-weight="bold" fill="#fff" text-anchor="middle">T</text></svg>'},
+    esso:{name:"Esso",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#BE0000"/><text x="50" y="65" font-size="42" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial">E</text></svg>'},
+    shell:{name:"Shell",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#FFD600"/><path d="M50 30 L65 45 L65 55 L50 70 L35 55 L35 45 Z" fill="#000"/></svg>'},
+    lidl:{name:"Lidl",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#FF6600"/><text x="50" y="65" font-size="38" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial">L</text></svg>'},
+    cora:{name:"Cora",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#00A3A3"/><text x="50" y="65" font-size="40" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial">C</text></svg>'},
+    casino:{name:"Casino",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#C70031"/><text x="50" y="65" font-size="35" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial">♣</text></svg>'},
+    u:{name:"Système U",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#D41F36"/><text x="50" y="65" font-size="48" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial">U</text></svg>'},
+    independent:{name:"Indépendante",logo:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#666"/><circle cx="30" cy="30" r="8" fill="#fff"/><circle cx="70" cy="30" r="8" fill="#fff"/><path d="M30 50 L70 50 M35 70 L65 70 Q65 80 50 80 Q35 80 35 70" fill="#fff"/></svg>'}
+  };
   const RADIUS_OPTIONS = [5, 10, 20, 30];
   const SORT_OPTIONS = {
     distance:"Plus proche",
@@ -270,6 +298,7 @@
   };
   const MEM = "carbu_prefs";
   const AI_MEM = "carbu_ai";
+  const PRICE_HISTORY_MEM = "carbu_price_history";
   const DEFAULT_GEMINI_CONFIG = window.MON_ESSENCE_CONFIG || {};
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -278,6 +307,7 @@
   let radiusKm = 10;
   let only24 = false;
   let sortBy = "distance";
+  let preferredFuels = ["e10", "sp95"];
   let voiceSearchPending = false;
   let lastRenderedRows = [];
   let recognition = null;
@@ -303,6 +333,10 @@
   const tabManual = document.getElementById("tab-manual");
   const gpsFields = document.getElementById("gpsFields");
   const manualFields = document.getElementById("manualFields");
+  const onboardingBg = document.getElementById("onboardingbg");
+  const onboardingSheet = document.getElementById("onboardingsheet");
+  const onboardingFuels = document.getElementById("onboardingFuels");
+  const onboardingConfirm = document.getElementById("onboardingConfirm");
 
   const mem = (() => {
     try{ return JSON.parse(localStorage.getItem(MEM) || "{}"); }
@@ -313,6 +347,7 @@
   if(mem.sortBy === "distance" || mem.sortBy === "price") sortBy = mem.sortBy;
   only24 = !!mem.only24;
   if(mem.mode === "manual" || mem.mode === "gps") mode = mem.mode;
+  if(mem.preferredFuels && Array.isArray(mem.preferredFuels)) preferredFuels = mem.preferredFuels;
 
   const aiMem = (() => {
     try{ return JSON.parse(localStorage.getItem(AI_MEM) || "{}"); }
@@ -329,7 +364,7 @@
   function remember(){
     try{
       localStorage.setItem(MEM, JSON.stringify({
-        mode, fuel, radiusKm, only24, sortBy,
+        mode, fuel, radiusKm, only24, sortBy, preferredFuels,
         commune: communeInput.value,
         cp: cpInput.value
       }));
@@ -339,6 +374,77 @@
   function rememberAi(){
     try{ localStorage.setItem(AI_MEM, JSON.stringify(aiSettings)); }
     catch(e){}
+  }
+
+  function getPriceHistory(){
+    try{ return JSON.parse(localStorage.getItem(PRICE_HISTORY_MEM) || "{}"); }
+    catch(e){ return {}; }
+  }
+
+  function savePriceHistory(history){
+    try{ localStorage.setItem(PRICE_HISTORY_MEM, JSON.stringify(history)); }
+    catch(e){}
+  }
+
+  function trackPrice(fuelType, price){
+    if(!price) return;
+    const today = new Date().toISOString().split("T")[0];
+    const history = getPriceHistory();
+    if(!history[today]) history[today] = {};
+    history[today][fuelType] = price;
+    savePriceHistory(history);
+  }
+
+  function getEvolution(fuelType, daysBack){
+    const history = getPriceHistory();
+    const today = new Date();
+    const dataPoints = [];
+    for(let i = 0; i < daysBack; i++){
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split("T")[0];
+      if(history[dateStr] && history[dateStr][fuelType] != null){
+        dataPoints.unshift({date: dateStr, price: history[dateStr][fuelType]});
+      }
+    }
+    if(dataPoints.length < 2) return null;
+    const oldest = dataPoints[0].price;
+    const newest = dataPoints[dataPoints.length - 1].price;
+    const change = newest - oldest;
+    const percent = (change / oldest * 100).toFixed(1);
+    return {change, percent, oldest, newest, points: dataPoints.length};
+  }
+
+  function showOnboarding(){
+    onboardingFuels.innerHTML = "";
+    Object.entries(FUELS).forEach(([key, label]) => {
+      const btn = document.createElement("button");
+      btn.className = "onboarding-fuel-btn";
+      btn.type = "button";
+      const isSelected = preferredFuels.includes(key);
+      if(isSelected) btn.classList.add("selected");
+      btn.innerHTML = `
+        <div class="onboarding-fuel-dot" style="background:${FUEL_COLORS[key].c}"></div>
+        <div>${label}</div>
+      `;
+      btn.onclick = () => {
+        if(preferredFuels.includes(key)){
+          preferredFuels = preferredFuels.filter(f => f !== key);
+        } else {
+          preferredFuels.push(key);
+        }
+        showOnboarding();
+      };
+      onboardingFuels.appendChild(btn);
+    });
+    onboardingBg.classList.add("show");
+    onboardingSheet.classList.add("show");
+  }
+
+  function closeOnboarding(){
+    remember();
+    onboardingBg.classList.remove("show");
+    onboardingSheet.classList.remove("show");
   }
 
   function setFuelVar(){
@@ -505,6 +611,31 @@
     return String(rec.horaires ?? "").includes("24/24");
   }
 
+  function detectBrand(rec){
+    const fullText = `${rec.adresse} ${rec.ville}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const checks = [
+      [/\be\.?leclerc\b/, "leclerc"],
+      [/\bleclerc\b/, "leclerc"],
+      [/\bcarrefour\b/, "carrefour"],
+      [/\bintermarche\b/, "intermarche"],
+      [/\binter marche\b/, "intermarche"],
+      [/\btotal\b/, "total"],
+      [/\besso\b/, "esso"],
+      [/\bshell\b/, "shell"],
+      [/\blidl\b/, "lidl"],
+      [/\bcora\b/, "cora"],
+      [/\bcasino\b/, "casino"],
+      [/\bgeant casino\b/, "casino"],
+      [/\bsysteme u\b/, "u"],
+      [/\bsysteme-u\b/, "u"],
+      [/\b(super|hyper)?u\b/, "u"]
+    ];
+    for(const [matcher, key] of checks){
+      if(matcher.test(fullText)) return key;
+    }
+    return "independent";
+  }
+
   function navUrls(lat, lon, query){
     const hasGeo = lat && lon;
     return {
@@ -600,10 +731,22 @@
     const auto = String(rec.pop || "").toUpperCase() === "A";
     const stationCoords = coords(rec);
     const navQuery = encodeURIComponent(`${rec.adresse || ""} ${rec.cp || ""} ${rec.ville || ""}`.trim());
+    const lastUpdateTimestamp = Date.parse(String(rec[`${fuel}_maj`]).replace(" ", "T"));
+    const daysSinceLastUpdate = !isNaN(lastUpdateTimestamp) ? Math.ceil((Date.now() - lastUpdateTimestamp) / 86400000) : null;
+    const evolutionSinceUpdate = daysSinceLastUpdate && daysSinceLastUpdate > 0 ? getEvolution(fuel, daysSinceLastUpdate) : null;
+    const updateColor = evolutionSinceUpdate?.percent > 0 ? '#E9795B' : '#43C08A';
+    const updateArrow = evolutionSinceUpdate?.percent > 0 ? '↑' : '↓';
+    const evolutionHtml = evolutionSinceUpdate ? `<div class="evolution" style="font-size:12px;color:${updateColor};margin-top:8px;font-weight:600">${updateArrow} ${Math.abs(evolutionSinceUpdate.percent)}% depuis MàJ</div>` : "";
+    const brandKey = detectBrand(rec);
+    const brand = BRANDS[brandKey] || BRANDS.independent;
     return `
       <div class="card${isBest ? " best" : ""}" style="border-left:4px solid ${(FUEL_COLORS[fuel] || {}).c || 'var(--line)'}">
         <div class="price">${p[fuel].toFixed(3)}<small>€</small></div>
         <div class="info">
+          <div class="brand-header" style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="width:32px;height:32px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--panel-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center">${brand.logo}</div>
+            <div style="font-weight:700;font-size:13px;color:var(--text)">${brand.name}</div>
+          </div>
           <div class="addr">${esc(rec.adresse || "Adresse non précisée")}</div>
           <div class="loc">${esc(rec.cp || "")} ${esc(rec.ville || "")}</div>
           <div class="badges">
@@ -615,6 +758,7 @@
           </div>
           ${others ? `<div class="others">${others}</div>` : ""}
           ${updatedAt ? `<div class="maj">Prix mis à jour ${updatedAt}</div>` : ""}
+          ${evolutionHtml}
           <a class="act" href="#" data-lat="${stationCoords ? stationCoords[0] : ""}" data-lon="${stationCoords ? stationCoords[1] : ""}" data-q="${navQuery}">Itinéraire →</a>
         </div>
       </div>`;
@@ -644,6 +788,7 @@
     }
     for(const row of rows){
       html += renderCard(row, best, prioritized.cheapest, prioritized.nearest);
+      trackPrice(fuel, row.p[fuel]);
     }
     out.innerHTML = html;
     finalizeVoiceFlow(buildVoiceSummary(rows[0]), true, false);
@@ -1096,6 +1241,12 @@
     document.getElementById(id).addEventListener("click", () => setTimeout(closeSheet, 100));
   });
 
+  onboardingConfirm.addEventListener("click", event => {
+    event.preventDefault();
+    closeOnboarding();
+  });
+  onboardingBg.addEventListener("click", closeOnboarding);
+
   if(mem.commune) communeInput.value = mem.commune;
   if(mem.cp) cpInput.value = mem.cp;
   syncFuelChips();
@@ -1105,6 +1256,12 @@
   setMode(mode);
   refreshAssistantState();
   setVoiceMeta("Prêt pour une demande naturelle ou vocale.", false);
+
+  if(!mem.hasShownOnboarding){
+    showOnboarding();
+    mem.hasShownOnboarding = true;
+    try{ localStorage.setItem(MEM, JSON.stringify({...mem, hasShownOnboarding: true})); }catch(e){}
+  }
 
   const themeBtn = document.getElementById("theme");
   const metaTheme = document.querySelector('meta[name="theme-color"]');
