@@ -245,23 +245,23 @@
       <button class="voice-btn" id="voiceBtn" type="button">Parler</button>
       <input id="voiceQuery" placeholder="Dicte ou saisis une demande naturelle" autocomplete="off" enterkeyhint="search">
     </div>
-        <input id="geminiApiKey" type="password" placeholder="AIza…" autocomplete="off">
+    <button class="go secondary" id="voiceGo" type="button">Analyser la demande</button>
+    <div class="voice-state" id="voiceState"></div>
+    <div class="voice-meta" id="voiceMeta"></div>
+    <details class="ai-settings">
+      <summary>Réglages Gemini</summary>
+      <p class="hint">Intégration propre recommandée: un proxy serveur qui garde la clé côté backend. Le mode “clé directe” reste utile pour tester un prototype statique, mais la clé sera exposée au navigateur.</p>
+      <div class="field">
+        <label for="geminiProxyUrl">URL du proxy Gemini</label>
+        <input id="geminiProxyUrl" placeholder="https://ton-backend.example/api/gemini-intent" autocomplete="off">
       </div>
-      <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px;">
-        <summary style="cursor:pointer;font-weight:700;color:var(--text);margin-bottom:8px">Enrichissement marques (Pappers/Société.com)</summary>
-        <p class="hint">Lance un serveur Node pour matcher les stations avec adresses → Pappers ou patterns locaux. Améliore les logos et noms d'enseigne. <strong>Optionnel.</strong></p>
-        <div class="field">
-          <label for="brandLookupUrl">URL du serveur brand lookup</label>
-          <input id="brandLookupUrl" placeholder="http://localhost:3001/lookup" autocomplete="off">
-        </div>
-        <button class="go secondary" id="testBrandServer" type="button" style="margin-bottom:8px">Tester la connexion</button>
-        <div id="brandTestInfo"></div>
-        <p class="hint" style="margin-top:8px;font-size:11px">
-          <strong>Installation locale:</strong><br>
-          1. Clone le serveur: <code style="background:var(--panel-2);padding:2px 4px;border-radius:3px">node societe-lookup.js</code><br>
-          2. URL par défaut: <code style="background:var(--panel-2);padding:2px 4px;border-radius:3px">http://localhost:3001/lookup</code><br>
-          3. Avec clé Pappers: <code style="background:var(--panel-2);padding:2px 4px;border-radius:3px">PAPPERS_API_KEY=... node societe-lookup.js</code>
-        </p>
+      <div class="field">
+        <label for="geminiModel">Modèle Gemini</label>
+        <input id="geminiModel" placeholder="gemini-2.5-flash-lite" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="geminiApiKey">Clé API directe (test seulement)</label>
+        <input id="geminiApiKey" type="password" placeholder="AIza…" autocomplete="off">
       </div>
     </details>
   </section>
