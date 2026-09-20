@@ -15,7 +15,6 @@
   :root{
     --ink:#0F1C25; --panel:#16272F; --panel-2:#0C161C; --line:#24414D;
     --text:#EAF0F2; --muted:#8398A2; --best:#43C08A; --danger:#E9795B;
-    --fuel:#FFB627;
     --sel:#F2F5F7; --sel-ink:#12202A;
     --btn:#F2F5F7; --btn-ink:#12202A;
   }
@@ -50,6 +49,7 @@
   .seg button[aria-selected="true"]{background:var(--sel);color:var(--sel-ink)}
 
   .field{margin-bottom:12px}
+  .field.suggest-wrap{position:relative}
   .hidden{display:none}
   label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;
         letter-spacing:.08em;margin:0 0 6px 2px}
@@ -74,23 +74,6 @@
   button.go:active{transform:translateY(1px)}
   button.go:disabled{opacity:.6}
 
-  .assistant{margin-top:18px;padding:14px;border-radius:16px;background:linear-gradient(180deg, var(--panel), var(--panel-2));
-             border:1px solid var(--line)}
-  .assistant-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
-  .assistant-badge{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--text);
-                   border:1px solid var(--line);border-radius:999px;padding:5px 9px}
-  .voice-row{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:stretch}
-  .voice-btn{border:1px solid var(--line);border-radius:12px;background:var(--sel);color:var(--sel-ink);
-             font-weight:800;font-size:15px;cursor:pointer;padding:0 12px;min-height:52px}
-  .voice-btn.listening{background:#D45E43;color:#fff;border-color:#D45E43}
-  .voice-meta,.voice-state{margin:10px 2px 0;font-size:12.5px;color:var(--muted);line-height:1.5}
-  .voice-meta.error{color:var(--danger)}
-  .voice-state b,.voice-meta b{color:var(--text)}
-  .ai-settings{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
-  .ai-settings summary{cursor:pointer;font-weight:700;color:var(--text);list-style:none}
-  .ai-settings summary::-webkit-details-marker{display:none}
-  .ai-settings .hint{margin-top:8px}
-  .ai-settings .field:last-child{margin-bottom:0}
 
   .status{margin-top:22px;color:var(--muted);font-size:14.5px;text-align:center;padding:0 6px}
   .status b{color:var(--text)}
@@ -102,10 +85,17 @@
   .card.best{box-shadow:inset 0 0 0 1.5px var(--best)}
   .price{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
          font-variant-numeric:tabular-nums;font-weight:700;font-size:26px;line-height:1;
-         color:var(--fuel);min-width:96px;text-align:right}
-  html[data-theme="light"] .price{color:var(--text)}
+         color:var(--text);min-width:96px;text-align:right}
   .price small{font-size:12px;color:var(--muted);font-weight:700;margin-left:2px}
   .info{flex:1;min-width:0}
+  .info-grid{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
+  .info-main{min-width:0}
+  .fuel-prices-col{display:flex;flex-direction:column;gap:6px;min-width:108px}
+  .fuel-price-row{display:flex;justify-content:space-between;align-items:center;gap:8px;
+                  border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:var(--panel-2)}
+  .fuel-price-row .name{font-size:10.5px;font-weight:800;letter-spacing:.03em}
+  .fuel-price-row .val{font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums}
+  .fuel-price-row.is-selected{box-shadow:inset 0 0 0 1.2px currentColor}
   .addr{font-weight:600;font-size:15px}
   .loc{color:var(--muted);font-size:13px;margin-top:2px}
   .badges{margin-top:7px;display:flex;flex-wrap:wrap;gap:6px}
@@ -113,8 +103,10 @@
         border:1px solid var(--line);border-radius:999px;padding:2px 8px}
   .tag{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--best);
        border:1px solid var(--best);border-radius:999px;padding:2px 8px}
-  .others{margin-top:8px;font-size:12.5px;color:var(--muted)}
-  .others b{color:var(--text);font-weight:600}
+  .fuel-tag{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--text);
+            border:1px solid var(--line);border-radius:999px;padding:2px 8px;
+            display:inline-flex;align-items:center;gap:5px}
+  .fuel-tag-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:0 0 8px}
   .foot{margin-top:26px;text-align:center;color:var(--muted);font-size:11.5px;line-height:1.6}
   .summary{margin:2px 2px 12px;font-size:12.5px;color:var(--muted)}
   .summary b{color:var(--text)}
@@ -125,50 +117,33 @@
   .maj{color:var(--muted);font-size:11.5px;margin-top:6px}
   .maj-fresh{color:#43C08A;font-weight:700}
   .maj-stale{color:#ff3b30;font-weight:700}
-  .act{display:inline-block;margin-top:9px;font-size:12.5px;font-weight:700;color:var(--text);
-       text-decoration:none;border:1px solid var(--line);border-radius:9px;padding:6px 11px}
-  .act:active{transform:translateY(1px);background:var(--panel-2)}
-  .sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;
-            opacity:0;pointer-events:none;transition:opacity .2s}
-  .sheet-bg.show{opacity:1;pointer-events:auto}
-  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:51;max-width:520px;margin:0 auto;
-         background:var(--panel);border:1px solid var(--line);border-radius:18px 18px 0 0;
-         padding:16px 16px calc(16px + env(safe-area-inset-bottom));
-         transform:translateY(110%);transition:transform .22s}
-  .sheet.show{transform:none}
-  .sheet h3{margin:2px 2px 14px;font-size:13px;color:var(--muted);font-weight:700;
-            text-align:center;text-transform:uppercase;letter-spacing:.06em}
-  .sheet a{display:block;text-align:center;padding:15px;border-radius:12px;border:1px solid var(--line);
-           color:var(--text);text-decoration:none;font-weight:700;font-size:15px;margin-bottom:9px}
-  .sheet a:active{background:var(--panel-2)}
-  .sheet .cancel{border:0;color:var(--muted);margin-bottom:0}
+  .nav-label{margin-top:10px;font-size:11.5px;font-weight:700;color:var(--muted)}
+    .nav-actions{margin-top:9px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    .nav-btn{display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;
+       color:var(--text);text-decoration:none;border:1px solid var(--line);border-radius:9px;
+       padding:7px 8px;background:transparent;white-space:nowrap}
+    .nav-btn:active{transform:translateY(1px);background:var(--panel-2)}
   .decision{font-size:11px;font-weight:800;letter-spacing:.06em;border-radius:999px;padding:2px 8px}
   .decision.price{color:var(--best);border:1px solid var(--best)}
   .decision.distance{color:var(--text);border:1px solid var(--line)}
-  .onboarding-fuels{display:grid;gap:12px;grid-template-columns:repeat(2,1fr);margin-bottom:14px}
-  .onboarding-fuel-btn{padding:14px;border-radius:12px;border:2px solid var(--line);
-                       background:transparent;color:var(--text);font-weight:700;font-size:15px;
-                       cursor:pointer;text-align:center;display:flex;flex-direction:column;gap:6px}
-  .onboarding-fuel-btn:active{transform:scale(0.98)}
-  .onboarding-fuel-btn.selected{border-color:var(--sel);background:var(--sel);color:var(--sel-ink)}
-  .onboarding-fuel-dot{width:24px;height:24px;border-radius:50%;margin:0 auto}
-  .fuel-section{margin-bottom:14px}
-  .fuel-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px}
-  .fuel-sub{color:var(--muted);font-size:12.5px;line-height:1.45;margin:4px 2px 0}
   .fuel-grid{gap:10px}
   .fuel-grid .chip{padding:11px 14px;font-weight:700;color:var(--text);background:var(--panel-2)}
   .fuel-grid .chip[aria-pressed="true"]{background:var(--sel);color:var(--sel-ink);border-color:var(--sel)}
-  .fuel-grid .chip.is-secondary{color:var(--muted);background:transparent}
-  .prefs-edit{flex:0 0 auto;border:1px solid var(--line);background:transparent;color:var(--text);
-              border-radius:10px;padding:8px 10px;font-size:12.5px;font-weight:700;cursor:pointer}
-  .prefs-edit:active{transform:translateY(1px)}
-  .prefs-link{margin-top:10px;padding:0;border:0;background:transparent;color:var(--muted);
-              font-size:12.5px;font-weight:700;cursor:pointer}
-  .other-fuels{margin-top:10px}
 
-  @media (max-width:480px){
-    .voice-row{grid-template-columns:1fr}
-    .fuel-head{align-items:flex-start;flex-direction:column}
+  .suggest{position:absolute;left:0;right:0;top:100%;z-index:30;margin-top:6px;
+           border:1px solid var(--line);border-radius:12px;background:var(--panel);
+           box-shadow:0 10px 24px rgba(0,0,0,.22);overflow:hidden}
+  .suggest button{width:100%;display:flex;justify-content:space-between;align-items:center;
+                  gap:12px;padding:11px 12px;border:0;border-bottom:1px solid var(--line);
+                  background:transparent;color:var(--text);font-size:14px;text-align:left;cursor:pointer}
+  .suggest button:last-child{border-bottom:0}
+  .suggest button:hover,.suggest button.active{background:var(--panel-2)}
+  .suggest .city{font-weight:700}
+  .suggest .zip{color:var(--muted);font-size:12.5px}
+
+  @media (max-width:440px){
+    .info-grid{grid-template-columns:1fr}
+    .fuel-prices-col{min-width:0}
   }
 </style>
 </head>
@@ -205,9 +180,10 @@
   </div>
 
   <div id="manualFields" class="hidden">
-    <div class="field">
+    <div class="field suggest-wrap">
       <label for="commune">Commune</label>
       <input id="commune" placeholder="ex. Lyon, Le Havre…" autocomplete="off" enterkeyhint="search">
+      <div class="suggest hidden" id="communeSuggest" role="listbox" aria-label="Suggestions de commune"></div>
     </div>
     <div class="field">
       <label for="cp">Code postal (option.)</label>
@@ -215,17 +191,9 @@
     </div>
   </div>
 
-  <div class="field fuel-section" aria-live="polite">
-    <div class="fuel-head">
-      <div>
-        <label>Carburants préférés</label>
-        <div class="fuel-sub">Sélectionne ton carburant principal ici. Les autres restent accessibles seulement si besoin.</div>
-      </div>
-      <button class="prefs-edit" id="editPreferredFuels" type="button">Personnaliser</button>
-    </div>
+  <div class="field" aria-live="polite">
+    <label>Carburant</label>
     <div class="chips fuel-grid" id="chips"></div>
-    <button class="prefs-link" id="toggleOtherFuels" type="button" aria-expanded="false">Afficher les autres carburants</button>
-    <div class="chips other-fuels hidden" id="otherFuels"></div>
   </div>
 
   <div class="field">
@@ -235,60 +203,12 @@
 
   <button class="go" id="go" type="button">Stations près de moi</button>
 
-  <section class="assistant" aria-labelledby="assistant-title">
-    <div class="assistant-head">
-      <h2 id="assistant-title">Assistant vocal</h2>
-      <span class="assistant-badge">Gemini optionnel</span>
-    </div>
-    <p class="hint">Exemples: “Quel est l'essence la moins chère autour de moi ?” ou “Trouve-moi du gazole 24/24 dans 20 km”.</p>
-    <div class="voice-row">
-      <button class="voice-btn" id="voiceBtn" type="button">Parler</button>
-      <input id="voiceQuery" placeholder="Dicte ou saisis une demande naturelle" autocomplete="off" enterkeyhint="search">
-    </div>
-    <button class="go secondary" id="voiceGo" type="button">Analyser la demande</button>
-    <div class="voice-state" id="voiceState"></div>
-    <div class="voice-meta" id="voiceMeta"></div>
-    <details class="ai-settings">
-      <summary>Réglages Gemini</summary>
-      <p class="hint">Intégration propre recommandée: un proxy serveur qui garde la clé côté backend. Le mode “clé directe” reste utile pour tester un prototype statique, mais la clé sera exposée au navigateur.</p>
-      <div class="field">
-        <label for="geminiProxyUrl">URL du proxy Gemini</label>
-        <input id="geminiProxyUrl" placeholder="https://ton-backend.example/api/gemini-intent" autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="geminiModel">Modèle Gemini</label>
-        <input id="geminiModel" placeholder="gemini-2.5-flash-lite" autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="geminiApiKey">Clé API directe (test seulement)</label>
-        <input id="geminiApiKey" type="password" placeholder="AIza…" autocomplete="off">
-      </div>
-    </details>
-  </section>
-
   <div id="out" aria-live="polite"></div>
 
   <div class="foot">
     Données officielles DGCCRF via data.economie.gouv.fr · mises à jour ~10 min.<br>
     Ajoute cette page à ton écran d'accueil pour un accès type appli.
   </div>
-</div>
-
-<div class="sheet-bg" id="navbg"></div>
-<div class="sheet" id="navsheet" role="dialog" aria-label="Choisir une application d'itinéraire">
-  <h3>Ouvrir l'itinéraire dans…</h3>
-  <a id="nav-waze" target="_blank" rel="noopener">Waze</a>
-  <a id="nav-gmaps" target="_blank" rel="noopener">Google Maps</a>
-  <a id="nav-apple" target="_blank" rel="noopener">Plans (Apple)</a>
-  <a class="cancel" id="nav-cancel" href="#">Annuler</a>
-</div>
-
-<div class="sheet-bg" id="onboardingbg"></div>
-<div class="sheet" id="onboardingsheet" role="dialog" aria-label="Choisir tes carburants préférés">
-  <h3>Tes carburants préférés</h3>
-  <p class="hint" style="margin-bottom:16px">Sélectionne les carburants que tu utilises généralement. Ils s'afficheront en priorité dans les résultats.</p>
-  <div class="onboarding-fuels" id="onboardingFuels"></div>
-  <button class="go" id="onboardingConfirm" type="button">C'est noté ✓</button>
 </div>
 
 <script>
@@ -322,50 +242,32 @@
     price:"Moins cher"
   };
   const MEM = "carbu_prefs";
-  const AI_MEM = "carbu_ai";
   const PRICE_HISTORY_MEM = "carbu_price_history";
-  const DEFAULT_GEMINI_CONFIG = window.MON_ESSENCE_CONFIG || {};
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   let fuel = "gazole";
   let mode = "gps";
   let radiusKm = 10;
   let only24 = false;
   let sortBy = "distance";
-  let preferredFuels = ["e10", "sp95"];
-  let voiceSearchPending = false;
   let lastRenderedRows = [];
-  let recognition = null;
-  let isListening = false;
-  let showOtherFuels = false;
+  let communeSuggestions = [];
+  let activeCommuneSuggestion = -1;
+  let communeSuggestController = null;
+  let communeSuggestTimer = null;
 
   const out = document.getElementById("out");
   const goBtn = document.getElementById("go");
   const communeInput = document.getElementById("commune");
   const cpInput = document.getElementById("cp");
+  const communeSuggest = document.getElementById("communeSuggest");
   const chipsEl = document.getElementById("chips");
-  const otherFuelsEl = document.getElementById("otherFuels");
   const radiusEl = document.getElementById("radius");
   const sortsEl = document.getElementById("sorts");
   const filtersEl = document.getElementById("filters");
-  const voiceBtn = document.getElementById("voiceBtn");
-  const voiceInput = document.getElementById("voiceQuery");
-  const voiceGoBtn = document.getElementById("voiceGo");
-  const voiceState = document.getElementById("voiceState");
-  const voiceMeta = document.getElementById("voiceMeta");
-  const geminiProxyUrlInput = document.getElementById("geminiProxyUrl");
-  const geminiModelInput = document.getElementById("geminiModel");
-  const geminiApiKeyInput = document.getElementById("geminiApiKey");
   const tabGps = document.getElementById("tab-gps");
   const tabManual = document.getElementById("tab-manual");
   const gpsFields = document.getElementById("gpsFields");
   const manualFields = document.getElementById("manualFields");
-  const onboardingBg = document.getElementById("onboardingbg");
-  const onboardingSheet = document.getElementById("onboardingsheet");
-  const onboardingFuels = document.getElementById("onboardingFuels");
-  const onboardingConfirm = document.getElementById("onboardingConfirm");
-  const editPreferredFuelsBtn = document.getElementById("editPreferredFuels");
-  const toggleOtherFuelsBtn = document.getElementById("toggleOtherFuels");
 
   const mem = (() => {
     try{ return JSON.parse(localStorage.getItem(MEM) || "{}"); }
@@ -376,36 +278,18 @@
   if(mem.sortBy === "distance" || mem.sortBy === "price") sortBy = mem.sortBy;
   only24 = !!mem.only24;
   if(mem.mode === "manual" || mem.mode === "gps") mode = mem.mode;
-  if(mem.preferredFuels && Array.isArray(mem.preferredFuels)) preferredFuels = mem.preferredFuels;
-  preferredFuels = preferredFuels.filter(key => FUELS[key]);
-  if(!preferredFuels.length) preferredFuels = [fuel && FUELS[fuel] ? fuel : "e10"];
-  if(!FUELS[fuel]) fuel = preferredFuels[0];
-
-  const aiMem = (() => {
-    try{ return JSON.parse(localStorage.getItem(AI_MEM) || "{}"); }
-    catch(e){ return {}; }
-  })();
-  const aiSettings = {
-    proxyUrl: DEFAULT_GEMINI_CONFIG.geminiProxyUrl || aiMem.proxyUrl || "",
-    model: DEFAULT_GEMINI_CONFIG.geminiModel || aiMem.model || "gemini-2.5-flash-lite",
-    apiKey: DEFAULT_GEMINI_CONFIG.geminiApiKey || aiMem.apiKey || ""
-  };
+  if(!FUELS[fuel]) fuel = "e10";
 
   let filter24Btn;
 
   function remember(){
     try{
       localStorage.setItem(MEM, JSON.stringify({
-        mode, fuel, radiusKm, only24, sortBy, preferredFuels,
+        mode, fuel, radiusKm, only24, sortBy,
         commune: communeInput.value,
         cp: cpInput.value
       }));
     }catch(e){}
-  }
-
-  function rememberAi(){
-    try{ localStorage.setItem(AI_MEM, JSON.stringify(aiSettings)); }
-    catch(e){}
   }
 
   function getPriceHistory(){
@@ -423,7 +307,8 @@
     const today = new Date().toISOString().split("T")[0];
     const history = getPriceHistory();
     if(!history[today]) history[today] = {};
-    history[today][fuelType] = price;
+    const prev = history[today][fuelType];
+    history[today][fuelType] = isFinite(prev) ? Math.min(prev, price) : price;
     savePriceHistory(history);
   }
 
@@ -447,92 +332,22 @@
     return {change, percent, oldest, newest, points: dataPoints.length};
   }
 
-  function showOnboarding(){
-    onboardingFuels.innerHTML = "";
-    Object.entries(FUELS).forEach(([key, label]) => {
-      const btn = document.createElement("button");
-      btn.className = "onboarding-fuel-btn";
-      btn.type = "button";
-      const isSelected = preferredFuels.includes(key);
-      if(isSelected) btn.classList.add("selected");
-      btn.innerHTML = `
-        <div class="onboarding-fuel-dot" style="background:${FUEL_COLORS[key].c}"></div>
-        <div>${label}</div>
-      `;
-      btn.onclick = () => {
-        if(preferredFuels.includes(key)){
-          preferredFuels = preferredFuels.filter(f => f !== key);
-        } else {
-          preferredFuels.push(key);
-        }
-        showOnboarding();
-      };
-      onboardingFuels.appendChild(btn);
-    });
-    onboardingBg.classList.add("show");
-    onboardingSheet.classList.add("show");
-  }
-
-  function ensurePreferredFuelSelection(){
-    preferredFuels = preferredFuels.filter(key => FUELS[key]);
-    if(!preferredFuels.length) preferredFuels = [fuel && FUELS[fuel] ? fuel : "e10"];
-    if(!FUELS[fuel]) fuel = preferredFuels[0];
-  }
-
   function renderFuelSelector(){
-    ensurePreferredFuelSelection();
-    const preferredSet = new Set(preferredFuels);
-    const activeFuelIsSecondary = !preferredSet.has(fuel);
     chipsEl.innerHTML = "";
-    otherFuelsEl.innerHTML = "";
 
-    preferredFuels.forEach(key => {
+    Object.entries(FUELS).forEach(([key, label]) => {
       const button = document.createElement("button");
       button.className = "chip";
-      button.type = "button";
-      button.dataset.fuel = key;
-      button.setAttribute("aria-pressed", key === fuel);
-      button.innerHTML = `<span class="dot" style="background:${FUEL_COLORS[key].c}"></span>${FUELS[key]}`;
-      button.onclick = () => {
-        fuel = key;
-        syncFuelChips();
-      };
-      chipsEl.appendChild(button);
-    });
-
-    Object.entries(FUELS).forEach(([key, label]) => {
-      if(preferredSet.has(key)) return;
-      const button = document.createElement("button");
-      button.className = "chip is-secondary";
       button.type = "button";
       button.dataset.fuel = key;
       button.setAttribute("aria-pressed", key === fuel);
       button.innerHTML = `<span class="dot" style="background:${FUEL_COLORS[key].c}"></span>${label}`;
       button.onclick = () => {
         fuel = key;
-        syncFuelChips();
+        syncFuelChips(true);
       };
-      otherFuelsEl.appendChild(button);
+      chipsEl.appendChild(button);
     });
-
-    const hasOtherFuels = otherFuelsEl.children.length > 0;
-    const shouldShowOtherFuels = hasOtherFuels && (showOtherFuels || activeFuelIsSecondary);
-    toggleOtherFuelsBtn.classList.toggle("hidden", !hasOtherFuels);
-    otherFuelsEl.classList.toggle("hidden", !shouldShowOtherFuels);
-    toggleOtherFuelsBtn.setAttribute("aria-expanded", String(shouldShowOtherFuels));
-    toggleOtherFuelsBtn.textContent = shouldShowOtherFuels ? "Masquer les autres carburants" : "Afficher les autres carburants";
-  }
-
-  function closeOnboarding(){
-    ensurePreferredFuelSelection();
-    remember();
-    renderFuelSelector();
-    onboardingBg.classList.remove("show");
-    onboardingSheet.classList.remove("show");
-  }
-
-  function setFuelVar(){
-    document.documentElement.style.setProperty("--fuel", (FUEL_COLORS[fuel] || {}).c || "#FFB627");
   }
 
   function updateGoLabel(){
@@ -543,22 +358,76 @@
     goBtn.textContent = "Chercher les prix";
   }
 
-  function setVoiceMeta(text, isError){
-    voiceMeta.textContent = text || "";
-    voiceMeta.classList.toggle("error", !!isError);
+  function clearCommuneSuggestions(){
+    communeSuggestions = [];
+    activeCommuneSuggestion = -1;
+    communeSuggest.classList.add("hidden");
+    communeSuggest.innerHTML = "";
   }
 
-  function refreshAssistantState(){
-    const parts = ["Analyse locale prête"];
-    if(aiSettings.proxyUrl) parts.push("Gemini via proxy");
-    else if(aiSettings.apiKey) parts.push("Gemini direct");
-    else parts.push("Gemini non configuré");
-    voiceState.innerHTML = `Mode actif: <b>${parts.join(" · ")}</b>`;
+  function renderCommuneSuggestions(){
+    if(!communeSuggestions.length){
+      clearCommuneSuggestions();
+      return;
+    }
+    communeSuggest.innerHTML = communeSuggestions.map((item, idx) => `
+      <button type="button" data-idx="${idx}" class="${idx === activeCommuneSuggestion ? "active" : ""}">
+        <span class="city">${esc(item.ville)}</span>
+        <span class="zip">${esc(item.cp)}</span>
+      </button>
+    `).join("");
+    communeSuggest.classList.remove("hidden");
   }
 
-  function syncFuelChips(){
-    [...chipsEl.children, ...otherFuelsEl.children].forEach(chip => chip.setAttribute("aria-pressed", chip.dataset.fuel === fuel));
-    setFuelVar();
+  function applyCommuneSuggestion(item){
+    communeInput.value = item.ville;
+    cpInput.value = item.cp || cpInput.value;
+    clearCommuneSuggestions();
+    remember();
+  }
+
+  async function fetchCommuneSuggestions(query){
+    const cleaned = String(query || "").trim().replace(/"/g, "");
+    if(cleaned.length < 2){
+      clearCommuneSuggestions();
+      return;
+    }
+    if(communeSuggestController) communeSuggestController.abort();
+    communeSuggestController = new AbortController();
+    try{
+      const where = `ville like "${cleaned}%"`;
+      const params = `select=${encodeURIComponent("ville,cp")}` +
+        `&group_by=${encodeURIComponent("ville,cp")}` +
+        `&order_by=${encodeURIComponent("ville asc, cp asc")}` +
+        `&where=${encodeURIComponent(where)}&limit=8`;
+      const response = await fetch(`${API}?${params}`, {signal: communeSuggestController.signal});
+      if(!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      const results = (payload.results || [])
+        .map(item => ({ville:String(item.ville || "").trim(), cp:String(item.cp || "").trim()}))
+        .filter(item => item.ville && item.cp);
+      const unique = [];
+      const seen = new Set();
+      for(const item of results){
+        const key = `${item.ville}|${item.cp}`;
+        if(seen.has(key)) continue;
+        seen.add(key);
+        unique.push(item);
+      }
+      communeSuggestions = unique;
+      activeCommuneSuggestion = -1;
+      renderCommuneSuggestions();
+    }catch(error){
+      if(error.name === "AbortError") return;
+      clearCommuneSuggestions();
+    }
+  }
+
+  function syncFuelChips(showRefreshHint = false){
+    [...chipsEl.children].forEach(chip => chip.setAttribute("aria-pressed", chip.dataset.fuel === fuel));
+    if(showRefreshHint && lastRenderedRows.length){
+      status(`Carburant sélectionné: <b>${FUELS[fuel]}</b>. Lance une nouvelle recherche pour actualiser les résultats.`);
+    }
     remember();
   }
 
@@ -613,12 +482,6 @@
     syncFilterChip();
   };
   filtersEl.appendChild(filter24Btn);
-
-  editPreferredFuelsBtn.onclick = () => showOnboarding();
-  toggleOtherFuelsBtn.onclick = () => {
-    showOtherFuels = !showOtherFuels;
-    renderFuelSelector();
-  };
 
   function setMode(nextMode){
     mode = nextMode;
@@ -736,27 +599,6 @@
     out.innerHTML = `<div class="status">${html}</div>`;
   }
 
-  function finalizeVoiceFlow(message, shouldSpeak, isError){
-    if(!voiceSearchPending) return;
-    setVoiceMeta(message, isError);
-    voiceSearchPending = false;
-    if(shouldSpeak && "speechSynthesis" in window){
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.lang = "fr-FR";
-      utterance.rate = 1;
-      window.speechSynthesis.speak(utterance);
-    }
-  }
-
-  function buildVoiceSummary(item){
-    if(!item) return "Aucune station exploitable.";
-    const address = [item.rec.adresse, item.rec.cp, item.rec.ville].filter(Boolean).join(", ");
-    const distance = item.dist != null ? ` à ${fmtDist(item.dist)}` : "";
-    const rankText = sortBy === "price" ? "la station la moins chère" : "la station la plus proche";
-    return `Pour ${FUELS[fuel]}, ${rankText} est ${address || "adresse non précisée"}, à ${item.p[fuel].toFixed(3).replace(".", ",")} euro le litre${distance}.`;
-  }
-
   function findCheapestRow(rows){
     return rows.reduce((best, current) => {
       if(!best) return current;
@@ -808,58 +650,80 @@
     return badges.join("");
   }
 
-  function renderCard(row, best, cheapest, nearest){
+  function renderCard(row, best, cheapest, nearest, displayFuel){
     const {rec, p, dist} = row;
-    const isBest = p[fuel] === best;
-    const others = Object.keys(p).filter(key => key !== fuel)
-      .map(key => `${FUELS[key] || key} <b>${p[key].toFixed(3)}</b>`).join(" · ");
-    const updatedAt = relTime(rec[`${fuel}_maj`]);
+    const activeFuelColor = (FUEL_COLORS[displayFuel] || {}).c || "#FFB627";
+    const isBest = p[displayFuel] === best;
+    const orderedFuelKeys = Object.keys(p).sort((a, b) => {
+      if(a === displayFuel) return -1;
+      if(b === displayFuel) return 1;
+      return p[a] - p[b];
+    });
+    const fuelPricesCol = orderedFuelKeys.map(key => {
+      const color = (FUEL_COLORS[key] || {}).c || "var(--line)";
+      return `<div class="fuel-price-row${key === displayFuel ? " is-selected" : ""}" style="color:${color};border-color:${color}"><span class="name">${FUELS[key] || key}</span><span class="val">${p[key].toFixed(3)}€</span></div>`;
+    }).join("");
+    const updatedAt = relTime(rec[`${displayFuel}_maj`]);
     const auto = String(rec.pop || "").toUpperCase() === "A";
     const stationCoords = coords(rec);
     const navQuery = encodeURIComponent(`${rec.adresse || ""} ${rec.cp || ""} ${rec.ville || ""}`.trim());
-    const lastUpdateTimestamp = Date.parse(String(rec[`${fuel}_maj`]).replace(" ", "T"));
+    const urls = navUrls(stationCoords ? stationCoords[0] : "", stationCoords ? stationCoords[1] : "", navQuery);
+    const lastUpdateTimestamp = Date.parse(String(rec[`${displayFuel}_maj`]).replace(" ", "T"));
     const updateAge = !isNaN(lastUpdateTimestamp) ? Date.now() - lastUpdateTimestamp : null;
-    const isFreshUpdate = updateAge !== null && updateAge < 43200000;
-    const isStaleUpdate = updateAge !== null && updateAge > 86400000;
-    const daysSinceLastUpdate = !isNaN(lastUpdateTimestamp) ? Math.ceil((Date.now() - lastUpdateTimestamp) / 86400000) : null;
-    const evolutionSinceUpdate = daysSinceLastUpdate && daysSinceLastUpdate > 0 ? getEvolution(fuel, daysSinceLastUpdate) : null;
-    const updateColor = evolutionSinceUpdate?.percent > 0 ? '#E9795B' : '#43C08A';
-    const updateArrow = evolutionSinceUpdate?.percent > 0 ? '↑' : '↓';
-    const evolutionHtml = evolutionSinceUpdate ? `<div class="evolution" style="font-size:12px;color:${updateColor};margin-top:8px;font-weight:600">${updateArrow} ${Math.abs(evolutionSinceUpdate.percent)}% depuis MàJ</div>` : "";
+    const isFreshUpdate = updateAge !== null && updateAge <= 172800000;
+    const isStaleUpdate = updateAge !== null && updateAge > 172800000;
+    const evolution7d = getEvolution(displayFuel, 7);
+    const evolutionColor = evolution7d ? (evolution7d.percent > 0 ? '#E9795B' : '#43C08A') : 'var(--muted)';
+    const evolutionArrow = evolution7d ? (evolution7d.percent > 0 ? '↑' : '↓') : '•';
+    const evolutionText = evolution7d
+      ? `${evolutionArrow} ${Math.abs(evolution7d.percent)}% sur 7j`
+      : `${evolutionArrow} Évolution sur 7j: données insuffisantes`;
+    const evolutionHtml = `<div class="evolution" style="font-size:12px;color:${evolutionColor};margin-top:8px;font-weight:600">${evolutionText}</div>`;
     const brandKey = detectBrand(rec);
     const brand = BRANDS[brandKey] || BRANDS.unknown;
     return `
-      <div class="card${isBest ? " best" : ""}" style="border-left:4px solid ${(FUEL_COLORS[fuel] || {}).c || 'var(--line)'}">
-        <div class="price">${p[fuel].toFixed(3)}<small>€</small></div>
+      <div class="card${isBest ? " best" : ""}" style="border-left:4px solid ${activeFuelColor}">
+        <div class="price" style="color:${activeFuelColor}">${p[displayFuel].toFixed(3)}<small>€</small></div>
         <div class="info">
-          <div class="brand-header" style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            ${brand.logo ? `<div style="width:32px;height:32px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--panel-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center">${brand.logo}</div>` : ""}
-            <div style="font-weight:700;font-size:13px;color:var(--text)">${brand.name}</div>
+          <div class="info-grid">
+            <div class="info-main">
+              <div class="brand-header" style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                ${brand.logo ? `<div style="width:32px;height:32px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--panel-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center">${brand.logo}</div>` : ""}
+                <div style="font-weight:700;font-size:13px;color:var(--text)">${brand.name}</div>
+              </div>
+              <div class="addr">${esc(rec.adresse || "Adresse non précisée")}</div>
+              <div class="loc">${esc(rec.cp || "")} ${esc(rec.ville || "")}</div>
+              <div class="badges">
+                ${dist != null ? `<span class="dist">à ${fmtDist(dist)}</span>` : ""}
+                <span class="fuel-tag" style="border-color:${activeFuelColor}"><span class="fuel-tag-dot" style="background:${activeFuelColor}"></span>${FUELS[displayFuel] || displayFuel}</span>
+                ${priorityBadges(row, cheapest, nearest)}
+                ${isBest ? `<span class="tag">MEILLEUR PRIX</span>` : ""}
+                ${auto ? `<span class="hw">Autoroute</span>` : ""}
+                ${is24(rec) ? `<span class="hw">24/24</span>` : ""}
+              </div>
+              ${updatedAt ? `<div class="maj${isFreshUpdate ? ' maj-fresh' : isStaleUpdate ? ' maj-stale' : ''}">Prix mis à jour ${updatedAt}</div>` : ""}
+              ${evolutionHtml}
+              <div class="nav-label">Itinéraire avec</div>
+                <div class="nav-actions">
+                  <a class="nav-btn" href="${urls.waze}" target="_blank" rel="noopener">Waze</a>
+                  <a class="nav-btn" href="${urls.gmaps}" target="_blank" rel="noopener">Google</a>
+                  <a class="nav-btn" href="${urls.apple}" target="_blank" rel="noopener">Apple</a>
+                </div>
+            </div>
+            <div class="fuel-prices-col">${fuelPricesCol}</div>
           </div>
-          <div class="addr">${esc(rec.adresse || "Adresse non précisée")}</div>
-          <div class="loc">${esc(rec.cp || "")} ${esc(rec.ville || "")}</div>
-          <div class="badges">
-            ${dist != null ? `<span class="dist">à ${fmtDist(dist)}</span>` : ""}
-            ${priorityBadges(row, cheapest, nearest)}
-            ${isBest ? `<span class="tag">MEILLEUR PRIX</span>` : ""}
-            ${auto ? `<span class="hw">Autoroute</span>` : ""}
-            ${is24(rec) ? `<span class="hw">24/24</span>` : ""}
-          </div>
-          ${others ? `<div class="others">${others}</div>` : ""}
-          ${updatedAt ? `<div class="maj${isFreshUpdate ? ' maj-fresh' : isStaleUpdate ? ' maj-stale' : ''}">Prix mis à jour ${updatedAt}</div>` : ""}
-          ${evolutionHtml}
-          <a class="act" href="#" data-lat="${stationCoords ? stationCoords[0] : ""}" data-lon="${stationCoords ? stationCoords[1] : ""}" data-q="${navQuery}">Itinéraire →</a>
         </div>
       </div>`;
   }
 
   function render(rows, head){
     if(!rows.length) return;
+    const displayFuel = fuel;
     const isGpsResults = mode === "gps" && rows.some(row => row.dist != null);
     const prioritized = isGpsResults ? orderGpsRows(rows) : {ordered:rows, cheapest:null, nearest:null};
     rows = prioritized.ordered;
     lastRenderedRows = rows;
-    const prices = rows.map(row => row.p[fuel]);
+    const prices = rows.map(row => row.p[displayFuel]);
     const best = Math.min(...prices);
     const worst = Math.max(...prices);
     const spread = worst - best;
@@ -870,22 +734,23 @@
     const displayedIds = new Set();
     if(isGpsResults && prioritized.cheapest){
       html += `<div class="priority-title">Décision immédiate</div><div class="priority">`;
-      html += renderCard(prioritized.cheapest, best, prioritized.cheapest, prioritized.nearest);
+      html += renderCard(prioritized.cheapest, best, prioritized.cheapest, prioritized.nearest, displayFuel);
       displayedIds.add(prioritized.cheapest.rec.id);
       if(prioritized.nearest && prioritized.nearest !== prioritized.cheapest){
-        html += renderCard(prioritized.nearest, best, prioritized.cheapest, prioritized.nearest);
+        html += renderCard(prioritized.nearest, best, prioritized.cheapest, prioritized.nearest, displayFuel);
         displayedIds.add(prioritized.nearest.rec.id);
       }
       html += `</div>`;
     }
     for(const row of rows){
       if(!displayedIds.has(row.rec.id)){
-        html += renderCard(row, best, prioritized.cheapest, prioritized.nearest);
+        html += renderCard(row, best, prioritized.cheapest, prioritized.nearest, displayFuel);
       }
-      trackPrice(fuel, row.p[fuel]);
+      Object.entries(row.p).forEach(([fuelKey, fuelPrice]) => {
+        if(FUELS[fuelKey]) trackPrice(fuelKey, fuelPrice);
+      });
     }
     out.innerHTML = html;
-    finalizeVoiceFlow(buildVoiceSummary(rows[0]), true, false);
   }
 
   async function apiGet(params){
@@ -899,7 +764,6 @@
     const cp = cpInput.value.trim().replace(/\D/g, "");
     if(!commune){
       status("Entre d'abord une commune à chercher.");
-      finalizeVoiceFlow("Je n'ai pas reconnu de commune à rechercher.", true, true);
       return;
     }
     remember();
@@ -911,7 +775,6 @@
       recs = await apiGet(`where=${encodeURIComponent(where)}&limit=100`);
     }catch(error){
       status(`Impossible de joindre le service. Vérifie ta connexion.<br><span style="font-size:12px">(${esc(error.message)})</span>`);
-      finalizeVoiceFlow("Le service carburant est indisponible pour le moment.", true, true);
       return;
     }
     let rows = recs.map(rec => ({rec, p: pricesOf(rec)}))
@@ -919,7 +782,6 @@
       .sort((a, b) => a.p[fuel] - b.p[fuel]);
     if(!rows.length){
       status(`Aucune station ne propose du <b>${FUELS[fuel]}</b> à <b>${esc(commune)}</b>${cp ? ` (${cp})` : ""}.<br>Essaie un autre carburant.`);
-      finalizeVoiceFlow(`Aucune station avec ${FUELS[fuel]} à ${commune}.`, true, true);
       return;
     }
     const filtered = filter24(rows);
@@ -930,7 +792,6 @@
   function searchGps(){
     if(!navigator.geolocation){
       status("Ce navigateur ne fournit pas la géolocalisation.");
-      finalizeVoiceFlow("La géolocalisation n'est pas disponible sur cet appareil.", true, true);
       return;
     }
     remember();
@@ -947,7 +808,6 @@
         recs = await apiGet(params);
       }catch(error){
         status(`Impossible de joindre le service. Vérifie ta connexion.<br><span style="font-size:12px">(${esc(error.message)})</span>`);
-        finalizeVoiceFlow("Le service carburant est indisponible pour le moment.", true, true);
         return;
       }
       let rows = recs.map(rec => {
@@ -965,7 +825,6 @@
         });
       if(!rows.length){
         status(`Aucune station avec du <b>${FUELS[fuel]}</b> dans ${radiusKm} km.<br>Élargis le rayon ou change de carburant.`);
-        finalizeVoiceFlow(`Aucune station avec ${FUELS[fuel]} dans ${radiusKm} kilomètres.`, true, true);
         return;
       }
       const filtered = filter24(rows);
@@ -978,368 +837,59 @@
         3:"La localisation a mis trop de temps. Réessaie."
       }[error.code] || "Localisation impossible.";
       status(message);
-      finalizeVoiceFlow(message, true, true);
     }, {enableHighAccuracy:false, timeout:10000, maximumAge:60000});
   }
 
-  function normalizeText(text){
-    return String(text || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9/\s'-]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  function toTitleCase(text){
-    return String(text || "").split(" ").filter(Boolean)
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ");
-  }
-
-  function nearestRadius(value){
-    const km = Number(value);
-    if(!isFinite(km)) return radiusKm;
-    return RADIUS_OPTIONS.reduce((best, current) => Math.abs(current - km) < Math.abs(best - km) ? current : best, RADIUS_OPTIONS[0]);
-  }
-
-  function pickGenericFuelFromContext(){
-    return ["sp95", "sp98", "e10", "e85"].includes(fuel) ? fuel : "e10";
-  }
-
-  function describeIntent(intent){
-    const modeLabel = intent.mode === "manual" ? `commune ${intent.commune || "à préciser"}` : "autour de toi";
-    const bits = [modeLabel, FUELS[intent.fuel] || FUELS[fuel], intent.sortBy === "price" ? "tri par prix" : "tri par distance"];
-    if(intent.only24) bits.push("24/24");
-    if(intent.radiusKm) bits.push(`${intent.radiusKm} km`);
-    const source = intent.source === "local" ? "analyse locale" : "analyse Gemini";
-    return `Interprétation: ${bits.join(" · ")} (${source}).`;
-  }
-
-  function validateIntent(raw){
-    if(!raw || typeof raw !== "object") return null;
-    if(raw.intent !== "search_station") return null;
-    const candidate = {
-      intent:"search_station",
-      mode: raw.mode === "manual" ? "manual" : "gps",
-      fuel: FUELS[raw.fuel] ? raw.fuel : fuel,
-      radiusKm: raw.radiusKm ? nearestRadius(raw.radiusKm) : null,
-      only24: typeof raw.only24 === "boolean" ? raw.only24 : null,
-      sortBy: raw.sortBy === "distance" ? "distance" : "price",
-      commune: typeof raw.commune === "string" ? raw.commune.trim() : "",
-      cp: typeof raw.cp === "string" ? raw.cp.replace(/\D/g, "") : "",
-      needsLocation: !!raw.needsLocation,
-      confidence: Number(raw.confidence) || 0.5,
-      source: raw.source || "gemini"
-    };
-    if(candidate.mode === "manual" && !candidate.commune) return null;
-    return candidate;
-  }
-
-  function parseVoiceQueryLocal(text){
-    const normalized = normalizeText(text);
-    if(!normalized) return {intent:"unsupported", confidence:0, source:"local"};
-
-    const intent = {
-      intent:"search_station",
-      mode:null,
-      fuel:null,
-      radiusKm:null,
-      only24:null,
-      sortBy:null,
-      commune:"",
-      cp:"",
-      needsLocation:false,
-      confidence:0.35,
-      source:"local"
-    };
-
-    if(/\b(carburant|essence|station|stations|gazole|diesel|sp95|sp98|e10|e85|gpl)\b/.test(normalized)) intent.confidence += 0.1;
-    if(/\bmoin?s?\s+ch(?:er|ere|ers|eres|ez)\b|\bmeilleur\s+prix\b|\bpas\s+cher\b|\bprix\s+le\s+plus\s+bas\b/.test(normalized)){
-      intent.sortBy = "price";
-      intent.confidence += 0.25;
-    }
-    if(/\b(autour de moi|pres de moi|proche de moi|chez moi|autour|a cote de moi)\b/.test(normalized)){
-      intent.mode = "gps";
-      intent.needsLocation = true;
-      intent.confidence += 0.3;
-    }
-    const radiusMatch = normalized.match(/\b(\d{1,2})\s?km\b/);
-    if(radiusMatch){
-      intent.radiusKm = nearestRadius(Number(radiusMatch[1]));
-      intent.confidence += 0.1;
-    }
-    if(/\b(24\s?\/\s?24|ouvert|ouverte|ouvertes)\b/.test(normalized)){
-      intent.only24 = true;
-      intent.confidence += 0.08;
-    }
-
-    const fuelChecks = [
-      [/\b(gazole|diesel)\b/, "gazole"],
-      [/\bsp95\b/, "sp95"],
-      [/\bsp98\b/, "sp98"],
-      [/\be10\b/, "e10"],
-      [/\be85\b/, "e85"],
-      [/\bgpl\b/, "gplc"]
-    ];
-    for(const [matcher, key] of fuelChecks){
-      if(matcher.test(normalized)){
-        intent.fuel = key;
-        intent.confidence += 0.1;
-        break;
-      }
-    }
-    if(!intent.fuel && /\bessence\b/.test(normalized)){
-      intent.fuel = pickGenericFuelFromContext();
-      intent.confidence += 0.05;
-    }
-
-    const cpMatch = normalized.match(/\b(\d{5})\b/);
-    if(cpMatch) intent.cp = cpMatch[1];
-
-    if(!intent.mode){
-      const manualMatch = normalized.match(/\b(?:a|sur|dans)\s+([a-z][a-z\s'-]{2,})$/);
-      if(manualMatch && !/\bmoi\b/.test(manualMatch[1])){
-        intent.mode = "manual";
-        intent.commune = toTitleCase(manualMatch[1]);
-        intent.sortBy = intent.sortBy || "price";
-        intent.confidence += 0.2;
-      }
-    }
-
-    if(!intent.mode && intent.sortBy === "price"){
-      intent.mode = "gps";
-      intent.needsLocation = true;
-      intent.confidence += 0.12;
-    }
-    if(!intent.sortBy) intent.sortBy = intent.mode === "gps" ? "distance" : "price";
-    if(!intent.fuel) intent.fuel = fuel;
-    if(!intent.mode) return {intent:"unsupported", confidence:intent.confidence, source:"local"};
-    return intent;
-  }
-
-  function extractJsonObject(text){
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if(start < 0 || end <= start) throw new Error("Réponse JSON introuvable");
-    return JSON.parse(text.slice(start, end + 1));
-  }
-
-  function geminiConfigured(){
-    return !!(aiSettings.proxyUrl || aiSettings.apiKey);
-  }
-
-  async function parseVoiceQueryWithGemini(text){
-    if(aiSettings.proxyUrl){
-      const response = await fetch(aiSettings.proxyUrl, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          utterance:text,
-          currentState:{fuel, mode, radiusKm, only24, sortBy}
-        })
-      });
-      if(!response.ok) throw new Error(`Proxy HTTP ${response.status}`);
-      const payload = await response.json();
-      const validated = validateIntent(payload.result || payload.intentResult || payload);
-      if(!validated) throw new Error("Réponse proxy invalide");
-      validated.source = "gemini-proxy";
-      return validated;
-    }
-
-    const prompt = [
-      "Tu extrais une intention de recherche pour une application française de prix des carburants.",
-      "Retourne uniquement du JSON brut.",
-      "Champs attendus: intent, mode, fuel, radiusKm, only24, sortBy, commune, cp, needsLocation, confidence.",
-      "intent doit valoir search_station ou unsupported.",
-      "mode doit valoir gps ou manual.",
-      "fuel doit valoir gazole, sp95, sp98, e10, e85 ou gplc.",
-      "sortBy doit valoir price ou distance.",
-      "Si l'utilisateur dit seulement essence, choisis e10.",
-      "Si la demande parle d'autour de moi, près de moi, chez moi, mets mode=gps et needsLocation=true.",
-      `Etat courant: fuel=${fuel}, mode=${mode}, radiusKm=${radiusKm}, only24=${only24}, sortBy=${sortBy}.`,
-      `Demande: ${text}`
-    ].join("\n");
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(aiSettings.model)}:generateContent?key=${encodeURIComponent(aiSettings.apiKey)}`, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        contents:[{parts:[{text:prompt}]}],
-        generationConfig:{temperature:0.1}
-      })
-    });
-    if(!response.ok) throw new Error(`Gemini HTTP ${response.status}`);
-    const payload = await response.json();
-    const rawText = (payload.candidates || [])
-      .flatMap(candidate => ((candidate.content || {}).parts || []).map(part => part.text || ""))
-      .join("\n");
-    const validated = validateIntent(extractJsonObject(rawText));
-    if(!validated) throw new Error("Réponse Gemini invalide");
-    validated.source = "gemini-direct";
-    return validated;
-  }
-
-  async function resolveVoiceIntent(text){
-    const local = parseVoiceQueryLocal(text);
-    if(local.intent === "search_station" && local.confidence >= 0.78) return local;
-    if(!geminiConfigured()) return local;
-    try{
-      return await parseVoiceQueryWithGemini(text);
-    }catch(error){
-      setVoiceMeta(`Gemini indisponible, repli local. (${error.message})`, true);
-      return local;
-    }
-  }
-
-  function applyVoiceIntent(intent){
-    if(intent.fuel && FUELS[intent.fuel]) fuel = intent.fuel;
-    if(intent.radiusKm) radiusKm = nearestRadius(intent.radiusKm);
-    if(typeof intent.only24 === "boolean") only24 = intent.only24;
-    if(intent.sortBy) sortBy = intent.sortBy;
-    syncFuelChips();
-    syncRadiusChips();
-    syncSortChips();
-    syncFilterChip();
-
-    if(intent.mode === "manual" && intent.commune){
-      communeInput.value = intent.commune;
-      cpInput.value = intent.cp || cpInput.value;
-      setMode("manual");
-    }else{
-      setMode("gps");
-    }
-
-    setVoiceMeta(describeIntent(intent), false);
-    voiceSearchPending = true;
-    if(mode === "gps") searchGps();
-    else searchManual();
-  }
-
-  function setListeningState(listening){
-    isListening = listening;
-    voiceBtn.classList.toggle("listening", listening);
-    voiceBtn.textContent = listening ? "Écoute…" : "Parler";
-  }
-
-  function ensureRecognition(){
-    if(!SpeechRecognition) return null;
-    if(recognition) return recognition;
-    recognition = new SpeechRecognition();
-    recognition.lang = "fr-FR";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    recognition.maxAlternatives = 1;
-    recognition.onstart = () => {
-      setListeningState(true);
-      setVoiceMeta("Écoute en cours…", false);
-    };
-    recognition.onend = () => setListeningState(false);
-    recognition.onerror = event => {
-      const message = event.error === "not-allowed"
-        ? "Micro refusé. Autorise l'accès au micro pour la recherche vocale."
-        : "Écoute impossible pour le moment.";
-      setVoiceMeta(message, true);
-      setListeningState(false);
-    };
-    recognition.onresult = event => {
-      const transcript = [...event.results].map(result => result[0].transcript).join(" ").trim();
-      voiceInput.value = transcript;
-      handleVoiceQuery(transcript);
-    };
-    return recognition;
-  }
-
-  async function handleVoiceQuery(forcedText){
-    const text = String(forcedText || voiceInput.value || "").trim();
-    if(!text){
-      setVoiceMeta("Dicte ou saisis une demande naturelle.", true);
-      return;
-    }
-    setVoiceMeta("Analyse de la demande…", false);
-    const intent = await resolveVoiceIntent(text);
-    if(!intent || intent.intent !== "search_station"){
-      setVoiceMeta("Demande non reconnue. Essaie par exemple: quelle est la station la moins chère autour de moi ?", true);
-      return;
-    }
-    applyVoiceIntent(intent);
-  }
-
   goBtn.onclick = () => mode === "gps" ? searchGps() : searchManual();
-  voiceGoBtn.onclick = () => handleVoiceQuery();
-  voiceBtn.onclick = () => {
-    const engine = ensureRecognition();
-    if(!engine){
-      setVoiceMeta("Ce navigateur ne prend pas en charge la dictée Web Speech. Utilise le champ texte ou Gemini via Android Auto/Assistant.", true);
-      return;
-    }
-    if(isListening){
-      engine.stop();
-      return;
-    }
-    engine.start();
-  };
 
   document.addEventListener("keydown", event => {
-    if(event.key === "Enter" && document.activeElement === voiceInput){
-      handleVoiceQuery();
+    if(event.key === "Enter" && mode === "manual") searchManual();
+  });
+
+  communeInput.addEventListener("input", () => {
+    remember();
+    if(communeSuggestTimer) clearTimeout(communeSuggestTimer);
+    communeSuggestTimer = setTimeout(() => fetchCommuneSuggestions(communeInput.value), 160);
+  });
+  communeInput.addEventListener("focus", () => {
+    if(communeInput.value.trim().length >= 2) fetchCommuneSuggestions(communeInput.value);
+  });
+  communeInput.addEventListener("keydown", event => {
+    if(communeSuggest.classList.contains("hidden")) return;
+    if(event.key === "ArrowDown"){
+      event.preventDefault();
+      activeCommuneSuggestion = Math.min(activeCommuneSuggestion + 1, communeSuggestions.length - 1);
+      renderCommuneSuggestions();
       return;
     }
-    if(event.key === "Enter" && mode === "manual" && document.activeElement !== voiceInput) searchManual();
+    if(event.key === "ArrowUp"){
+      event.preventDefault();
+      activeCommuneSuggestion = Math.max(activeCommuneSuggestion - 1, 0);
+      renderCommuneSuggestions();
+      return;
+    }
+    if(event.key === "Enter" && activeCommuneSuggestion >= 0){
+      event.preventDefault();
+      applyCommuneSuggestion(communeSuggestions[activeCommuneSuggestion]);
+      return;
+    }
+    if(event.key === "Escape"){
+      event.preventDefault();
+      clearCommuneSuggestions();
+    }
   });
-
-  communeInput.addEventListener("input", remember);
-  cpInput.addEventListener("input", remember);
-  voiceInput.addEventListener("input", () => setVoiceMeta("", false));
-
-  geminiProxyUrlInput.value = aiSettings.proxyUrl;
-  geminiModelInput.value = aiSettings.model;
-  geminiApiKeyInput.value = aiSettings.apiKey;
-  geminiProxyUrlInput.addEventListener("input", event => {
-    aiSettings.proxyUrl = event.target.value.trim();
-    rememberAi();
-    refreshAssistantState();
+  communeSuggest.addEventListener("click", event => {
+    const button = event.target.closest("button[data-idx]");
+    if(!button) return;
+    const idx = Number(button.dataset.idx);
+    if(!Number.isInteger(idx) || !communeSuggestions[idx]) return;
+    applyCommuneSuggestion(communeSuggestions[idx]);
   });
-  geminiModelInput.addEventListener("input", event => {
-    aiSettings.model = event.target.value.trim() || "gemini-2.5-flash-lite";
-    rememberAi();
-    refreshAssistantState();
-  });
-  geminiApiKeyInput.addEventListener("input", event => {
-    aiSettings.apiKey = event.target.value.trim();
-    rememberAi();
-    refreshAssistantState();
-  });
-
-  const navbg = document.getElementById("navbg");
-  const navsheet = document.getElementById("navsheet");
-  function openSheet(){ navbg.classList.add("show"); navsheet.classList.add("show"); }
-  function closeSheet(){ navbg.classList.remove("show"); navsheet.classList.remove("show"); }
   document.addEventListener("click", event => {
-    const actionLink = event.target.closest("a.act");
-    if(!actionLink) return;
-    event.preventDefault();
-    const urls = navUrls(actionLink.dataset.lat, actionLink.dataset.lon, actionLink.dataset.q || "");
-    document.getElementById("nav-waze").href = urls.waze;
-    document.getElementById("nav-gmaps").href = urls.gmaps;
-    document.getElementById("nav-apple").href = urls.apple;
-    openSheet();
+    if(event.target === communeInput || communeSuggest.contains(event.target)) return;
+    clearCommuneSuggestions();
   });
-  navbg.onclick = closeSheet;
-  document.getElementById("nav-cancel").onclick = event => {
-    event.preventDefault();
-    closeSheet();
-  };
-  ["nav-waze", "nav-gmaps", "nav-apple"].forEach(id => {
-    document.getElementById(id).addEventListener("click", () => setTimeout(closeSheet, 100));
-  });
-
-  onboardingConfirm.addEventListener("click", event => {
-    event.preventDefault();
-    closeOnboarding();
-  });
-  onboardingBg.addEventListener("click", closeOnboarding);
+  cpInput.addEventListener("input", remember);
 
   if(mem.commune) communeInput.value = mem.commune;
   if(mem.cp) cpInput.value = mem.cp;
@@ -1349,14 +899,6 @@
   syncSortChips();
   syncFilterChip();
   setMode(mode);
-  refreshAssistantState();
-  setVoiceMeta("Prêt pour une demande naturelle ou vocale.", false);
-
-  if(!mem.hasShownOnboarding){
-    showOnboarding();
-    mem.hasShownOnboarding = true;
-    try{ localStorage.setItem(MEM, JSON.stringify({...mem, hasShownOnboarding: true})); }catch(e){}
-  }
 
   const themeBtn = document.getElementById("theme");
   const metaTheme = document.querySelector('meta[name="theme-color"]');
